@@ -1,0 +1,10 @@
+flask
+flask-cors
+yfinance
+pandas
+requests
+xgboost
+scikit-learn
+vaderSentiment
+feedparser
+prophet
