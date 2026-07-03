@@ -7,13 +7,14 @@ import feedparser
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import logging
 
+import data_source
+
 # Silence Prophet logging
 logging.getLogger('cmdstanpy').setLevel(logging.ERROR)
 
 def get_ml_insights(symbol):
     try:
-        ticker = yf.Ticker(symbol)
-        df = ticker.history(period="2y")
+        df = data_source.get_history(symbol, period="2y")
         if df.empty or len(df) < 50:
             return {"error": "Not enough historical data for ML models."}
 
@@ -107,8 +108,7 @@ def get_ml_insights(symbol):
 
 def get_advanced_signals(symbol):
     try:
-        ticker = yf.Ticker(symbol)
-        df = ticker.history(period="1y")
+        df = data_source.get_history(symbol, period="1y")
         if df.empty or len(df) < 20:
             return {"error": "Not enough data"}
 
@@ -174,7 +174,7 @@ def portfolio_optimization(symbols):
         if not symbols or len(symbols) < 2:
             return {"error": "Need at least 2 symbols for optimization"}
             
-        data = yf.download(symbols, period="1y")['Close']
+        data = pd.DataFrame({s: data_source.get_close_series(s, "1y") for s in symbols}).dropna(how="all")
         if data.empty:
             return {"error": "Could not fetch data for symbols"}
             
@@ -205,17 +205,17 @@ def portfolio_optimization(symbols):
         opt_ret, opt_std = calc_portfolio_perf(optimal_weights, mean_returns, cov_matrix, risk_free_rate)
 
         # CAPM Expected Returns
-        market_symbol = "^GSPC" # S&P 500
-        market_data = yf.download(market_symbol, period="1y")['Close']
+        market_data = data_source.get_close_series("^GSPC", "1y")  # S&P 500
         market_returns = market_data.pct_change().dropna()
         market_mean_return = market_returns.mean() * 252
         
         capm_returns = {}
         for idx, sym in enumerate(symbols):
             try:
-                # Calculate Beta
-                cov_market = np.cov(returns[sym], market_returns)[0][1] * 252
-                market_var = market_returns.var() * 252
+                # Calculate Beta (align dates before covariance)
+                aligned = pd.concat([returns[sym], market_returns], axis=1).dropna()
+                cov_market = np.cov(aligned.iloc[:, 0], aligned.iloc[:, 1])[0][1] * 252
+                market_var = aligned.iloc[:, 1].var() * 252
                 beta = cov_market / market_var
                 
                 # Expected Return = Rf + Beta * (E(Rm) - Rf)

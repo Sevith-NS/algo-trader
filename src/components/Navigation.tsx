@@ -45,6 +45,7 @@ export default function Navigation() {
             <NavLink href="/screener" text="Terminal" />
             <NavLink href="/portfolio" text="Portfolio" />
             <NavLink href="/markets" text="Markets" />
+            <NavLink href="/news" text="News" />
             <NavLink href="/geotrade" text="Geotrade" />
             <NavLink href="/community" text="Community" />
           </div>
@@ -121,6 +122,7 @@ export default function Navigation() {
               <MobileNavLink href="/screener" text="Terminal" onClick={() => setIsOpen(false)} />
               <MobileNavLink href="/portfolio" text="Portfolio" onClick={() => setIsOpen(false)} />
               <MobileNavLink href="/markets" text="Markets" onClick={() => setIsOpen(false)} />
+              <MobileNavLink href="/news" text="News" onClick={() => setIsOpen(false)} />
               <MobileNavLink href="/geotrade" text="Geotrade" onClick={() => setIsOpen(false)} />
               <MobileNavLink href="/community" text="Community" onClick={() => setIsOpen(false)} />
               

@@ -60,8 +60,8 @@ export default function MarketsPage() {
     <div className="min-h-screen bg-bgPrimary flex flex-col">
       <Navigation />
       
-      <main className="flex-1 w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-3xl font-bold mb-8 tracking-tight">Market Overview</h1>
+      <main className="flex-1 w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-16">
+        <h1 className="text-3xl font-bold mb-8 tracking-tight text-gradient">Market Overview</h1>
 
         {loading ? (
           <div className="flex items-center justify-center h-64 glass-panel">
@@ -135,7 +135,11 @@ export default function MarketsPage() {
                       <span className="font-bold">{asset.symbol}</span>
                       <div className="text-right">
                         <div>{formatCurrency(asset.price)}</div>
-                        <div className="text-textSecondary text-sm">Vol: {(asset.volume / 1000000).toFixed(1)}M</div>
+                        <div className="text-textSecondary text-sm">
+                          {asset.volume
+                            ? `Vol: ${(asset.volume / 1000000).toFixed(1)}M`
+                            : `${asset.change >= 0 ? '+' : ''}${asset.change.toFixed(2)}%`}
+                        </div>
                       </div>
                     </Link>
                   ))}

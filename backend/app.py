@@ -5,6 +5,11 @@ import pandas as pd
 import requests
 import ml_models
 import geotrade_layer
+import quant_models
+import news_engine
+import ai_assistant
+import risk_analytics
+import data_source
 
 app = Flask(__name__)
 # Allow CORS for Next.js frontend running on port 3000
@@ -32,22 +37,7 @@ def quote():
         return jsonify({'error': 'Query parameter "symbol" is required'}), 400
     
     try:
-        ticker = yf.Ticker(symbol)
-        info = ticker.info
-        
-        return jsonify({
-            'symbol': symbol,
-            'shortName': info.get('shortName', symbol),
-            'longName': info.get('longName', symbol),
-            'currency': info.get('currency', 'USD'),
-            'regularMarketPrice': info.get('currentPrice', info.get('regularMarketPrice')),
-            'regularMarketChangePercent': ((info.get('currentPrice', 1) - info.get('previousClose', 1)) / info.get('previousClose', 1) * 100) if info.get('currentPrice') and info.get('previousClose') else 0,
-            'regularMarketVolume': info.get('volume', info.get('regularMarketVolume')),
-            'averageDailyVolume3Month': info.get('averageVolume'),
-            'fiftyTwoWeekHigh': info.get('fiftyTwoWeekHigh'),
-            'fiftyTwoWeekLow': info.get('fiftyTwoWeekLow'),
-            'marketCap': info.get('marketCap')
-        })
+        return jsonify(data_source.get_quote(symbol))
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -61,9 +51,8 @@ def chart():
         return jsonify({'error': 'Query parameter "symbol" is required'}), 400
         
     try:
-        ticker = yf.Ticker(symbol)
-        hist = ticker.history(period="1y", interval=interval)
-        
+        hist = data_source.get_history(symbol, period="1y")
+
         quotes = []
         for date, row in hist.iterrows():
             if pd.notna(row['Open']) and pd.notna(row['High']) and pd.notna(row['Low']) and pd.notna(row['Close']):
@@ -82,35 +71,8 @@ def chart():
 
 @app.route('/api/trending', methods=['GET'])
 def trending():
-    url = "https://query1.finance.yahoo.com/v1/finance/trending/US?count=15"
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
     try:
-        response = requests.get(url, headers=headers)
-        data = response.json()
-        
-        trending_results = data.get('finance', {}).get('result', [{}])[0].get('quotes', [])
-        symbols = [q.get('symbol') for q in trending_results]
-        
-        if symbols:
-            tickers = yf.Tickers(' '.join(symbols))
-            quotes_list = []
-            for sym in symbols:
-                try:
-                    info = tickers.tickers[sym].info
-                    quotes_list.append({
-                        'symbol': sym,
-                        'shortName': info.get('shortName', sym),
-                        'longName': info.get('longName', sym),
-                        'currency': info.get('currency', 'USD'),
-                        'regularMarketPrice': info.get('currentPrice', info.get('regularMarketPrice')),
-                        'regularMarketChangePercent': ((info.get('currentPrice', 1) - info.get('previousClose', 1)) / info.get('previousClose', 1) * 100) if info.get('currentPrice') and info.get('previousClose') else 0,
-                        'regularMarketVolume': info.get('volume', info.get('regularMarketVolume')),
-                        'marketCap': info.get('marketCap')
-                    })
-                except Exception:
-                    pass
-            return jsonify(quotes_list)
-        return jsonify([])
+        return jsonify(data_source.get_trending())
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -132,6 +94,50 @@ def advanced_signals():
     signals = ml_models.get_advanced_signals(symbol)
     return jsonify(signals)
 
+@app.route('/api/quant-signals', methods=['GET'])
+def quant_signals():
+    symbol = request.args.get('symbol')
+    if not symbol:
+        return jsonify({'error': 'Query parameter "symbol" is required'}), 400
+
+    return jsonify(quant_models.get_quant_signals(symbol))
+
+@app.route('/api/news', methods=['GET'])
+def global_news():
+    return jsonify(news_engine.get_global_news())
+
+@app.route('/api/news/ticker', methods=['GET'])
+def ticker_news():
+    symbol = request.args.get('symbol')
+    if not symbol:
+        return jsonify({'error': 'Query parameter "symbol" is required'}), 400
+
+    return jsonify(news_engine.get_ticker_news(symbol))
+
+@app.route('/api/ai-chat', methods=['POST'])
+def ai_chat():
+    data = request.json or {}
+    messages = data.get('messages', [])
+    if not messages:
+        return jsonify({'error': 'JSON body must contain a non-empty "messages" list'}), 400
+
+    result = ai_assistant.chat(
+        messages=messages,
+        portfolio=data.get('portfolio'),
+        symbol=data.get('symbol')
+    )
+    return jsonify(result)
+
+@app.route('/api/portfolio-analytics', methods=['POST'])
+def portfolio_analytics():
+    data = request.json or {}
+    positions = data.get('positions', [])
+    balance = data.get('balance', 0)
+    if not positions:
+        return jsonify({'error': 'JSON body must contain a "positions" list'}), 400
+
+    return jsonify(risk_analytics.get_portfolio_analytics(positions, balance))
+
 @app.route('/api/portfolio-optimization', methods=['POST'])
 def portfolio_optimization():
     data = request.json
@@ -145,39 +151,7 @@ def portfolio_optimization():
 @app.route('/api/market-overview', methods=['GET'])
 def market_overview():
     try:
-        # Example hardcoded set of important tickers for the heatmap
-        # Ideally, we scrape Yahoo's gainers/losers page, but yfinance doesn't easily expose the raw screener.
-        # So we fetch a mixed bag of major indices and popular tech/finance stocks to simulate the overview.
-        symbols = ['AAPL', 'MSFT', 'NVDA', 'TSLA', 'AMZN', 'META', 'GOOGL', 'JPM', 'V', 'WMT', 'JNJ', 'PG', 'XOM', 'BAC', 'MA']
-        tickers = yf.Tickers(' '.join(symbols))
-        
-        results = []
-        for sym in symbols:
-            try:
-                info = tickers.tickers[sym].fast_info
-                prev_close = info.previous_close
-                curr_price = info.last_price
-                change_pct = ((curr_price - prev_close) / prev_close) * 100
-                
-                results.append({
-                    'symbol': sym,
-                    'price': curr_price,
-                    'change': change_pct,
-                    'volume': info.last_volume,
-                    'marketCap': info.market_cap
-                })
-            except:
-                pass
-                
-        # Sort by best performers
-        results = sorted(results, key=lambda x: x['change'], reverse=True)
-        
-        return jsonify({
-            'top_gainers': results[:5],
-            'top_losers': results[-5:],
-            'most_active': sorted(results, key=lambda x: x['volume'], reverse=True)[:5],
-            'all_assets': results
-        })
+        return jsonify(data_source.get_market_overview())
     except Exception as e:
         import traceback
         traceback.print_exc()

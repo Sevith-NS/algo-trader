@@ -3,44 +3,53 @@
 @tailwind utilities;
 
 :root {
-  /* Core Colors */
-  --bg-primary: #0A0E17;
-  --bg-secondary: #121826;
-  --bg-glass: rgba(18, 24, 38, 0.6);
-  --text-primary: #FFFFFF;
+  /* Core Colors — deep slate with soft neon accents */
+  --bg-primary: #07090F;
+  --bg-secondary: #0D1220;
+  --bg-elevated: #121A2C;
+  --bg-glass: rgba(13, 18, 32, 0.72);
+  --text-primary: #F1F5F9;
   --text-secondary: #94A3B8;
-  
+  --text-muted: #64748B;
+
   /* Brand/Accent Colors */
-  --accent-green: #00FF88;
-  --accent-red: #FF3366;
-  --accent-blue: #3B82F6;
-  --accent-purple: #8B5CF6;
+  --accent-green: #34D399;
+  --accent-red: #F87171;
+  --accent-blue: #60A5FA;
+  --accent-purple: #A78BFA;
+  --accent-amber: #FBBF24;
+  --accent-cyan: #22D3EE;
 
   /* UI Tokens */
-  --border-subtle: rgba(255, 255, 255, 0.1);
-  --border-focus: rgba(0, 255, 136, 0.5);
-  --radius-sm: 4px;
-  --radius-md: 8px;
+  --border-subtle: rgba(148, 163, 184, 0.12);
+  --border-strong: rgba(148, 163, 184, 0.24);
+  --border-focus: rgba(52, 211, 153, 0.5);
+  --radius-sm: 6px;
+  --radius-md: 10px;
   --radius-lg: 16px;
   --radius-xl: 24px;
-  
+
   /* Shadows and Effects */
-  --shadow-glow-green: 0 0 15px rgba(0, 255, 136, 0.2);
-  --shadow-glow-red: 0 0 15px rgba(255, 51, 102, 0.2);
-  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-  --blur-glass: blur(12px);
+  --shadow-glow-green: 0 0 24px rgba(52, 211, 153, 0.15);
+  --shadow-glow-red: 0 0 24px rgba(248, 113, 113, 0.15);
+  --shadow-glass: 0 1px 0 0 rgba(255, 255, 255, 0.03) inset, 0 8px 32px rgba(0, 0, 0, 0.35);
+  --blur-glass: blur(16px);
 
   /* Typography */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  --font-mono: 'JetBrains Mono', source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 html, body {
   margin: 0;
   padding: 0;
-  width: 100vw;
+  width: 100%;
   min-height: 100vh;
   background-color: var(--bg-primary);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(96, 165, 250, 0.08), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(167, 139, 250, 0.05), transparent);
+  background-attachment: fixed;
   color: var(--text-primary);
   font-family: var(--font-sans);
   overflow-x: hidden;
@@ -65,11 +74,57 @@ button {
   color: inherit;
 }
 
+/* Slim custom scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.35);
+}
+
+::selection {
+  background: rgba(52, 211, 153, 0.25);
+}
+
 .glass-panel {
   background: var(--bg-glass);
   backdrop-filter: var(--blur-glass);
   -webkit-backdrop-filter: var(--blur-glass);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-glass);
+  transition: border-color 0.25s ease;
+}
+
+.glass-panel:hover {
+  border-color: var(--border-strong);
+}
+
+/* Gradient headline text */
+.text-gradient {
+  background: linear-gradient(120deg, #F1F5F9 30%, #94A3B8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Numeric readouts */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Shared micro-interaction for cards */
+.hover-lift {
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
 }
