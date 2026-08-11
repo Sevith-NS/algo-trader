@@ -15,7 +15,24 @@ import usePrefersReducedMotion from '../lib/useReducedMotion';
 
 // Magic UI
 import { Marquee } from '../components/magicui/Marquee';
+<<<<<<< HEAD
 import { Meteors } from '../components/magicui/Meteors';
+=======
+import { BorderBeam } from '../components/magicui/BorderBeam';
+import { ShimmerButton } from '../components/magicui/ShimmerButton';
+import { Meteors } from '../components/magicui/Meteors';
+import { AnimatedGradientText } from '../components/magicui/AnimatedGradientText';
+
+// React Bits
+import SplitText from '../components/reactbits/SplitText';
+import ShinyText from '../components/reactbits/ShinyText';
+import GradientText from '../components/reactbits/GradientText';
+import SpotlightCard from '../components/reactbits/SpotlightCard';
+import CountUp from '../components/reactbits/CountUp';
+
+// Shared scroll state: ScrollTrigger writes, useFrame reads (no re-renders)
+const scrollState = { progress: 0 };
+>>>>>>> 214d63153a65dc7bb46388fe816048e7fe4cc414
 
 // React Bits
 import MaskedText from '../components/reactbits/MaskedText';
@@ -30,9 +47,12 @@ import SplashCursor from '../components/reactbits/SplashCursor';
 
 // framer-motion 3D tilt card
 function TiltCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+<<<<<<< HEAD
   // Manual motion values bypass MotionConfig's reducedMotion="user",
   // so the tilt must be gated explicitly.
   const reduced = useReducedMotion();
+=======
+>>>>>>> 214d63153a65dc7bb46388fe816048e7fe4cc414
   const mx = useMotionValue(0.5);
   const my = useMotionValue(0.5);
   const sx = useSpring(mx, { stiffness: 220, damping: 22 });
@@ -103,6 +123,11 @@ const FEATURES = [
     desc: 'Five-factor systematic engine — OU mean reversion, momentum, VWAP, order-flow, RSI — voting into executable entry, ATR stop and R-multiple targets with half-Kelly sizing.',
     href: '/screener',
     spotlight: 'rgba(52, 211, 153, 0.16)',
+<<<<<<< HEAD
+=======
+    beamFrom: '#34D399',
+    beamTo: '#22D3EE',
+>>>>>>> 214d63153a65dc7bb46388fe816048e7fe4cc414
   },
   {
     icon: <ShieldAlert size={22} className="text-accentRed" />,
@@ -110,6 +135,11 @@ const FEATURES = [
     desc: '95% VaR & expected shortfall in dollars, Sharpe, Sortino, max drawdown, beta and diversification scoring — recomputed live on your portfolio.',
     href: '/portfolio',
     spotlight: 'rgba(248, 113, 113, 0.14)',
+<<<<<<< HEAD
+=======
+    beamFrom: '#F87171',
+    beamTo: '#FBBF24',
+>>>>>>> 214d63153a65dc7bb46388fe816048e7fe4cc414
   },
   {
     icon: <Newspaper size={22} className="text-accentBlue" />,
@@ -117,6 +147,11 @@ const FEATURES = [
     desc: 'Headlines across 8 market categories scored with NLP in real time, aggregated into fear/greed mood indices per region and asset class.',
     href: '/news',
     spotlight: 'rgba(96, 165, 250, 0.15)',
+<<<<<<< HEAD
+=======
+    beamFrom: '#60A5FA',
+    beamTo: '#22D3EE',
+>>>>>>> 214d63153a65dc7bb46388fe816048e7fe4cc414
   },
   {
     icon: <Bot size={22} className="text-accentPurple" />,
@@ -124,6 +159,11 @@ const FEATURES = [
     desc: 'A portfolio-aware assistant grounded in your live positions, quant signals and news flow. Ask it anything — it cites real numbers, not vibes.',
     href: '/screener',
     spotlight: 'rgba(167, 139, 250, 0.15)',
+<<<<<<< HEAD
+=======
+    beamFrom: '#A78BFA',
+    beamTo: '#60A5FA',
+>>>>>>> 214d63153a65dc7bb46388fe816048e7fe4cc414
   },
 ];
 
@@ -160,6 +200,7 @@ const WORKFLOW_STEPS = [
 export default function LandingPage() {
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasWrapRef = useRef<HTMLDivElement>(null);
+<<<<<<< HEAD
   const scrollWrapRef = useRef<HTMLDivElement>(null);
   const workflowRef = useRef<HTMLDivElement>(null);
   // Hard a11y requirement: under prefers-reduced-motion the SAME galaxy
@@ -172,6 +213,11 @@ export default function LandingPage() {
   // position through a scrollerProxy; every trigger is created AFTER the proxy
   // is wired, inside this effect. Depends on reducedMotion so an OS-level
   // toggle mid-session tears the whole rig down (or builds it up) cleanly.
+=======
+  const workflowRef = useRef<HTMLDivElement>(null);
+
+  // GSAP: scroll rig, hero, feature cascade, CTA
+>>>>>>> 214d63153a65dc7bb46388fe816048e7fe4cc414
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
     if (reducedMotion) return;
@@ -196,7 +242,16 @@ export default function LandingPage() {
         y: 0, opacity: 1, duration: 0.9, stagger: 0.12, delay: 0.4, ease: 'power3.out',
       });
 
+<<<<<<< HEAD
       // Dim the galaxy as content takes over
+=======
+      // Hero secondary elements (headlines are handled by SplitText)
+      gsap.from('[data-hero-fade]', {
+        y: 24, opacity: 0, duration: 0.9, stagger: 0.12, delay: 0.7, ease: 'power3.out',
+      });
+
+      // Dim the 3D scene as content takes over
+>>>>>>> 214d63153a65dc7bb46388fe816048e7fe4cc414
       gsap.to(canvasWrapRef.current, {
         opacity: 0.28,
         scrollTrigger: { trigger: '[data-features]', start: 'top 85%', end: 'top 30%', scrub: true },
@@ -333,6 +388,42 @@ export default function LandingPage() {
     };
   }, [reducedMotion]);
 
+  // anime.js: workflow steps cascade + icon pop when the section scrolls into view
+  useEffect(() => {
+    const el = workflowRef.current;
+    if (!el) return;
+
+    const steps = el.querySelectorAll<HTMLElement>('[data-workflow-step]');
+    steps.forEach((s) => { s.style.opacity = '0'; });
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0].isIntersecting) return;
+        observer.disconnect();
+
+        animate(steps, {
+          opacity: [0, 1],
+          translateX: [-42, 0],
+          filter: ['blur(6px)', 'blur(0px)'],
+          delay: stagger(150),
+          duration: 850,
+          ease: 'outExpo',
+        });
+        animate(el.querySelectorAll('[data-workflow-icon]'), {
+          scale: [0, 1],
+          rotate: ['-90deg', '0deg'],
+          delay: stagger(150, { start: 120 }),
+          duration: 700,
+          ease: 'outBack(2.2)',
+        });
+      },
+      { threshold: 0.25 },
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div ref={rootRef} className="relative">
       {/* Fixed elements live OUTSIDE the locomotive container — position:fixed
@@ -385,6 +476,7 @@ export default function LandingPage() {
       {/* ======================= HERO ======================= */}
       <section className="relative z-10 flex min-h-screen flex-col items-center justify-center px-6 text-center">
         <div data-hero-fade className="mb-6">
+<<<<<<< HEAD
           {/* Static badge — the animated gradient ring ("running border") is gone */}
           <div className="mx-auto flex max-w-fit items-center gap-2 rounded-full border border-borderSubtle bg-white/[0.04] px-4 py-1.5 backdrop-blur-sm">
             <span className="inline-block h-1.5 w-1.5 animate-pulse-soft rounded-full bg-accentGreen" />
@@ -402,6 +494,24 @@ export default function LandingPage() {
               'text-gradient pb-1',
               'bg-gradient-to-r from-emerald-300 via-cyan-300 to-blue-400 bg-clip-text text-transparent pb-2',
             ]}
+=======
+          <AnimatedGradientText>
+            <span className="mr-2 inline-block h-1.5 w-1.5 animate-pulse-soft rounded-full bg-accentGreen" />
+            <GradientText className="text-xs font-semibold uppercase tracking-[0.3em]" animationSpeed={6}>
+              Vanguard OS · Quant Terminal
+            </GradientText>
+            <ChevronRight size={14} className="ml-1 text-textMuted transition-transform duration-300 group-hover:translate-x-0.5" />
+          </AnimatedGradientText>
+        </div>
+
+        <h1 className="text-5xl font-black leading-[1.08] tracking-tight sm:text-7xl">
+          <SplitText text="Trade with" className="text-gradient" delay={35} />
+          <br />
+          <SplitText
+            text="machine precision."
+            className="bg-gradient-to-r from-emerald-300 via-cyan-300 to-blue-400 bg-clip-text text-transparent"
+            delay={35}
+>>>>>>> 214d63153a65dc7bb46388fe816048e7fe4cc414
           />
         </h1>
 
@@ -412,10 +522,25 @@ export default function LandingPage() {
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
           <div data-hero-fade>
+<<<<<<< HEAD
             <PrimaryCta href="/screener">
               Launch Terminal
               <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
             </PrimaryCta>
+=======
+            <Link href="/screener">
+              <ShimmerButton
+                shimmerColor="#34D399"
+                background="linear-gradient(110deg, #064E3B 0%, #07090F 45%, #083344 100%)"
+                className="px-8 py-3.5 shadow-glowGreen"
+              >
+                <span className="flex items-center gap-2 text-sm font-bold text-white">
+                  Launch Terminal
+                  <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+                </span>
+              </ShimmerButton>
+            </Link>
+>>>>>>> 214d63153a65dc7bb46388fe816048e7fe4cc414
           </div>
           <Link
             data-hero-fade
@@ -450,14 +575,22 @@ export default function LandingPage() {
         <div className="mb-14 text-center">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.3em] text-accentBlue">The stack</p>
           <h2 className="text-3xl font-bold tracking-tight sm:text-5xl">
+<<<<<<< HEAD
             <MaskedText lines={['A hedge-fund desk, distilled.']} className="text-gradient pb-1" />
+=======
+            <SplitText text="A hedge-fund desk, distilled." className="text-gradient" delay={22} />
+>>>>>>> 214d63153a65dc7bb46388fe816048e7fe4cc414
           </h2>
         </div>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
-          {FEATURES.map((f) => (
+          {FEATURES.map((f, i) => (
             <div data-feature-card key={f.title}>
               <Link href={f.href} className="block h-full">
                 <SpotlightCard className="h-full p-6 hover-lift" spotlightColor={f.spotlight}>
+<<<<<<< HEAD
+=======
+                  <BorderBeam size={140} duration={10} delay={i * 2.5} colorFrom={f.beamFrom} colorTo={f.beamTo} />
+>>>>>>> 214d63153a65dc7bb46388fe816048e7fe4cc414
                   <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-borderSubtle bg-white/[0.04]">
                     {f.icon}
                   </div>
@@ -512,6 +645,10 @@ export default function LandingPage() {
             </div>
           </div>
           <TiltCard className="overflow-hidden">
+<<<<<<< HEAD
+=======
+            <BorderBeam size={180} duration={12} colorFrom="#F87171" colorTo="#A78BFA" />
+>>>>>>> 214d63153a65dc7bb46388fe816048e7fe4cc414
             <div className="space-y-3 font-mono text-[13px]">
               <div className="flex items-center justify-between border-b border-borderSubtle pb-3">
                 <span className="font-bold text-textPrimary">AAPL · Quant Plan</span>
@@ -543,8 +680,14 @@ export default function LandingPage() {
           className="glass-panel relative mx-auto flex max-w-4xl flex-col items-center gap-6 overflow-hidden rounded-3xl p-14 text-center"
         >
           <Meteors number={24} />
+<<<<<<< HEAD
           <h2 className="text-3xl font-bold tracking-tight sm:text-5xl">
             <MaskedText lines={['Your desk is ready.']} className="text-gradient pb-1" />
+=======
+          <BorderBeam size={220} duration={14} colorFrom="#34D399" colorTo="#60A5FA" />
+          <h2 className="text-3xl font-bold tracking-tight sm:text-5xl">
+            <SplitText text="Your desk is ready." className="text-gradient" delay={30} />
+>>>>>>> 214d63153a65dc7bb46388fe816048e7fe4cc414
           </h2>
           <p className="max-w-xl text-textSecondary">
             <ShinyText
@@ -552,12 +695,27 @@ export default function LandingPage() {
               speed={6}
             />
           </p>
+<<<<<<< HEAD
           <div className="mt-2">
             <PrimaryCta href="/screener">
               Open Vanguard OS
               <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
             </PrimaryCta>
           </div>
+=======
+          <Link href="/screener" className="mt-2">
+            <ShimmerButton
+              shimmerColor="#22D3EE"
+              background="linear-gradient(110deg, #064E3B 0%, #07090F 45%, #083344 100%)"
+              className="px-9 py-4 shadow-glowGreen"
+            >
+              <span className="flex items-center gap-2 text-sm font-bold text-white">
+                Open Vanguard OS
+                <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+              </span>
+            </ShimmerButton>
+          </Link>
+>>>>>>> 214d63153a65dc7bb46388fe816048e7fe4cc414
         </div>
       </section>
 
