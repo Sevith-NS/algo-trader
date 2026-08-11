@@ -7,30 +7,70 @@ import ml_models
 import geotrade_layer
 import quant_models
 import news_engine
+import news_intel
+import fundamentals
+import deep_analysis
 import ai_assistant
 import risk_analytics
 import data_source
+import screener_engine
+from rate_limiter import rate_limit
 
 app = Flask(__name__)
-# Allow CORS for Next.js frontend running on port 3000
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+# Allow CORS for Next.js frontend running on port 3000.
+# expose_headers: Retry-After / X-RateLimit-* are not CORS-safelisted, so
+# without this the browser hides them from fetch() and the client can't
+# show an accurate rate-limit countdown.
+CORS(app, resources={r"/api/*": {"origins": "*"}},
+     expose_headers=['Retry-After', 'X-RateLimit-Limit',
+                     'X-RateLimit-Remaining', 'X-RateLimit-Reset'])
+
+# Client-side caching policy per resource class (system-design: cache close
+# to the consumer; the browser absorbs repeat GETs before they hit us).
+_CACHE_POLICY = {
+    '/api/quote': 'public, max-age=30',
+    '/api/chart': 'public, max-age=300',
+    '/api/search': 'public, max-age=300',
+    '/api/trending': 'public, max-age=120',
+    '/api/market-overview': 'public, max-age=120',
+    '/api/news': 'public, max-age=300',
+    '/api/news-intel': 'public, max-age=300',
+    '/api/fundamentals': 'public, max-age=3600',
+    '/api/ml-insights': 'public, max-age=600',
+    '/api/quant-signals': 'public, max-age=300',
+    '/api/discover': 'public, max-age=300',
+    '/api/screens': 'public, max-age=3600',
+    '/api/screens/run': 'public, max-age=300',
+}
+
+@app.after_request
+def add_cache_headers(response):
+    if request.method == 'GET' and response.status_code == 200:
+        policy = _CACHE_POLICY.get(request.path)
+        # Never let the browser cache a failure payload: some handlers return
+        # {"error": ...} with HTTP 200 (stale-if-error semantics), and caching
+        # those would keep showing the outage after the backend recovers.
+        if policy and not (response.is_json and b'"error"' in response.get_data()[:120]):
+            response.headers.setdefault('Cache-Control', policy)
+    return response
 
 @app.route('/api/search', methods=['GET'])
+@rate_limit('standard')
 def search():
     query = request.args.get('q')
     if not query:
         return jsonify({'error': 'Query parameter "q" is required'}), 400
     
-    url = f"https://query1.finance.yahoo.com/v1/finance/search?q={query}&quotesCount=5"
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+    url = "https://query1.finance.yahoo.com/v1/finance/search"
     try:
-        response = requests.get(url, headers=headers)
+        response = data_source.http_get(url, {'q': query, 'quotesCount': 5})
         data = response.json()
         return jsonify(data)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/quote', methods=['GET'])
+@rate_limit('standard')
 def quote():
     symbol = request.args.get('symbol')
     if not symbol:
@@ -42,6 +82,7 @@ def quote():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/chart', methods=['GET'])
+@rate_limit('standard')
 def chart():
     symbol = request.args.get('symbol')
     period1 = request.args.get('period1')
@@ -70,6 +111,7 @@ def chart():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/trending', methods=['GET'])
+@rate_limit('standard')
 def trending():
     try:
         return jsonify(data_source.get_trending())
@@ -77,6 +119,7 @@ def trending():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/ml-insights', methods=['GET'])
+@rate_limit('standard')
 def ml_insights():
     symbol = request.args.get('symbol')
     if not symbol:
@@ -86,6 +129,7 @@ def ml_insights():
     return jsonify(insights)
 
 @app.route('/api/advanced-signals', methods=['GET'])
+@rate_limit('standard')
 def advanced_signals():
     symbol = request.args.get('symbol')
     if not symbol:
@@ -95,6 +139,7 @@ def advanced_signals():
     return jsonify(signals)
 
 @app.route('/api/quant-signals', methods=['GET'])
+@rate_limit('standard')
 def quant_signals():
     symbol = request.args.get('symbol')
     if not symbol:
@@ -103,10 +148,12 @@ def quant_signals():
     return jsonify(quant_models.get_quant_signals(symbol))
 
 @app.route('/api/news', methods=['GET'])
+@rate_limit('standard')
 def global_news():
     return jsonify(news_engine.get_global_news())
 
 @app.route('/api/news/ticker', methods=['GET'])
+@rate_limit('standard')
 def ticker_news():
     symbol = request.args.get('symbol')
     if not symbol:
@@ -114,7 +161,51 @@ def ticker_news():
 
     return jsonify(news_engine.get_ticker_news(symbol))
 
+@app.route('/api/news-intel', methods=['GET'])
+@rate_limit('standard')
+def ticker_news_intel():
+    """Multi-source news sweep + finance-tuned sentiment rating for one ticker."""
+    symbol = request.args.get('symbol')
+    if not symbol:
+        return jsonify({'error': 'Query parameter "symbol" is required'}), 400
+
+    return jsonify(news_intel.get_news_intel(symbol))
+
+@app.route('/api/fundamentals', methods=['GET'])
+@rate_limit('standard')
+def fundamentals_xray():
+    """Annual statements, derived ratios, red flags, valuation vs own history."""
+    symbol = request.args.get('symbol')
+    if not symbol:
+        return jsonify({'error': 'Query parameter "symbol" is required'}), 400
+
+    return jsonify(fundamentals.get_fundamentals(symbol))
+
+@app.route('/api/deep-analysis', methods=['GET'])
+@rate_limit('expensive')
+def deep_analysis_route():
+    """Full teardown: fundamentals + technical phase + news + composite verdict.
+    Pass ai=1 to also generate the Gemini research-note narrative (slower)."""
+    symbol = request.args.get('symbol')
+    if not symbol:
+        return jsonify({'error': 'Query parameter "symbol" is required'}), 400
+
+    include_ai = request.args.get('ai') == '1'
+    return jsonify(deep_analysis.get_deep_analysis(symbol, include_ai=include_ai))
+
+@app.route('/api/holdings-intel', methods=['POST'])
+@rate_limit('expensive')
+def holdings_intel():
+    """Batch compact intel (health, stance, phase, verdict) for held positions."""
+    data = request.json or {}
+    positions = data.get('positions', [])
+    if not positions:
+        return jsonify({'error': 'JSON body must contain a "positions" list'}), 400
+
+    return jsonify(deep_analysis.get_holdings_intel(positions))
+
 @app.route('/api/ai-chat', methods=['POST'])
+@rate_limit('expensive')
 def ai_chat():
     data = request.json or {}
     messages = data.get('messages', [])
@@ -129,6 +220,7 @@ def ai_chat():
     return jsonify(result)
 
 @app.route('/api/portfolio-analytics', methods=['POST'])
+@rate_limit('standard')
 def portfolio_analytics():
     data = request.json or {}
     positions = data.get('positions', [])
@@ -139,6 +231,7 @@ def portfolio_analytics():
     return jsonify(risk_analytics.get_portfolio_analytics(positions, balance))
 
 @app.route('/api/portfolio-optimization', methods=['POST'])
+@rate_limit('expensive')
 def portfolio_optimization():
     data = request.json
     symbols = data.get('symbols', [])
@@ -149,6 +242,7 @@ def portfolio_optimization():
     return jsonify(result)
 
 @app.route('/api/market-overview', methods=['GET'])
+@rate_limit('standard')
 def market_overview():
     try:
         return jsonify(data_source.get_market_overview())
@@ -157,7 +251,61 @@ def market_overview():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
+def _scan_response(result):
+    """jsonify a scan payload; an outage scan (parsed == 0) must not be
+    browser-cached — the engine already refuses to memoise it, and a
+    Cache-Control'd 200 would pin the empty page past upstream recovery.
+    setdefault in add_cache_headers lets this explicit header win."""
+    resp = jsonify(result)
+    if result.get('parsed') == 0:
+        resp.headers['Cache-Control'] = 'no-store'
+    return resp
+
+@app.route('/api/discover', methods=['GET'])
+@rate_limit('standard')
+def discover():
+    """Horizon-tagged idea cards for a universe (listed alphabetically — never ranked)."""
+    universe = request.args.get('universe', 'us_large')
+    # all=1 (the Markets hub): a card for every parsed symbol, tags may be [].
+    include_untagged = request.args.get('all') == '1'
+    try:
+        return _scan_response(
+            screener_engine.get_discover(universe, include_untagged=include_untagged))
+    except screener_engine.UnknownUniverseError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/screens', methods=['GET'])
+@rate_limit('standard')
+def screens_catalogue():
+    """Prebuilt screen catalogue — static registry, conditions text derived
+    from the same specs the evaluator runs."""
+    try:
+        return jsonify(screener_engine.list_screens())
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/screens/run', methods=['GET'])
+@rate_limit('standard')
+def screens_run():
+    """Run one prebuilt screen over a universe."""
+    screen_id = request.args.get('id')
+    if not screen_id:
+        return jsonify({'error': 'Query parameter "id" is required'}), 400
+
+    universe = request.args.get('universe', 'us_large')
+    try:
+        return _scan_response(screener_engine.run_screen(screen_id, universe))
+    except screener_engine.UnknownScreenError as e:
+        return jsonify({'error': str(e)}), 404
+    except screener_engine.UnknownUniverseError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/analyze-idea', methods=['POST'])
+@rate_limit('standard')
 def analyze_idea():
     data = request.json
     text = data.get('title', '') + " " + data.get('content', '')
@@ -190,6 +338,7 @@ def analyze_idea():
     })
 
 @app.route('/api/geotrade', methods=['GET'])
+@rate_limit('expensive')
 def geotrade():
     try:
         data = geotrade_layer.get_geotrade_analysis()
@@ -198,6 +347,7 @@ def geotrade():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/geotrade/deep', methods=['GET'])
+@rate_limit('expensive')
 def geotrade_deep():
     country = request.args.get('country')
     if not country:

@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Search } from 'lucide-react';
 import styles from './SearchInput.module.css';
 import { useRouter } from 'next/navigation';
+import { API_BASE } from '../lib/api';
 
 export default function SearchInput() {
   const [query, setQuery] = useState('');
@@ -26,17 +27,26 @@ export default function SearchInput() {
       setResults([]);
       return;
     }
+    // Abort superseded requests: without this, a slow response for an older
+    // query can land last and show stale results under the current text.
+    const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`http://127.0.0.1:5000/api/search?q=${encodeURIComponent(query)}`);
+        const res = await fetch(
+          `${API_BASE}/api/search?q=${encodeURIComponent(query)}`,
+          { signal: controller.signal },
+        );
         const data = await res.json();
         setResults(data.quotes || []);
         setShowDropdown(true);
       } catch (err) {
-        console.error(err);
+        if ((err as Error)?.name !== 'AbortError') console.error(err);
       }
     }, 300);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [query]);
 
   const handleSearch = (e: React.FormEvent) => {

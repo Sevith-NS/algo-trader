@@ -33,15 +33,21 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loaded, setLoaded] = useState(false);
 
-  // Load from local storage
+  // Load from local storage — defensively. PortfolioProvider wraps every page,
+  // so corrupt storage (interrupted write, devtools edits) must never throw:
+  // an unguarded JSON.parse here used to take down the whole app on load.
   useEffect(() => {
-    const storedBalance = localStorage.getItem('pt_balance');
-    const storedPositions = localStorage.getItem('pt_positions');
-    const storedTrades = localStorage.getItem('pt_trades');
+    try {
+      const storedBalance = parseFloat(localStorage.getItem('pt_balance') ?? '');
+      const storedPositions = JSON.parse(localStorage.getItem('pt_positions') ?? '[]');
+      const storedTrades = JSON.parse(localStorage.getItem('pt_trades') ?? '[]');
 
-    if (storedBalance) setBalance(parseFloat(storedBalance));
-    if (storedPositions) setPositions(JSON.parse(storedPositions));
-    if (storedTrades) setTrades(JSON.parse(storedTrades));
+      if (Number.isFinite(storedBalance)) setBalance(storedBalance);
+      if (Array.isArray(storedPositions)) setPositions(storedPositions);
+      if (Array.isArray(storedTrades)) setTrades(storedTrades);
+    } catch {
+      // Corrupt storage — fall back to the $100k defaults instead of crashing.
+    }
     setLoaded(true);
   }, []);
 

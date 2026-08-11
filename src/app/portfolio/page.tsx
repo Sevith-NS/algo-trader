@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import Navigation from '../../components/Navigation';
+import HoldingsIntel from '../../components/intel/HoldingsIntel';
 import { usePortfolio } from '../../context/PortfolioContext';
 import { API_BASE, apiPost } from '../../lib/api';
 
@@ -39,6 +40,7 @@ export default function PortfolioPage() {
   const { balance, positions, trades, resetPortfolio } = usePortfolio();
   const [livePrices, setLivePrices] = useState<Record<string, number>>({});
   const [optimization, setOptimization] = useState<any>(null);
+  const [optimizationFailed, setOptimizationFailed] = useState(false);
   const [analytics, setAnalytics] = useState<any>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
 
@@ -58,7 +60,9 @@ export default function PortfolioPage() {
           }
         })
       );
-      setLivePrices(prices);
+      // Merge, don't replace: one failed tick (backend restart, throttle)
+      // must not wipe known prices and snap the whole book's P&L to $0.
+      setLivePrices(prev => ({ ...prev, ...prices }));
     };
     fetchPrices();
     const interval = setInterval(fetchPrices, 30000);
@@ -74,6 +78,7 @@ export default function PortfolioPage() {
     }
     const run = async () => {
       setLoadingAnalytics(true);
+      setOptimizationFailed(false);
       try {
         const [analyticsRes, optRes] = await Promise.all([
           apiPost('/api/portfolio-analytics', { positions, balance }).catch(() => null),
@@ -82,7 +87,12 @@ export default function PortfolioPage() {
             : Promise.resolve(null),
         ]);
         if (analyticsRes && !analyticsRes.error) setAnalytics(analyticsRes);
-        if (optRes && !optRes.error) setOptimization(optRes);
+        if (optRes && !optRes.error) {
+          setOptimization(optRes);
+        } else if (positions.length >= 2) {
+          // Don't leave the panel saying "Calculating…" forever on failure
+          setOptimizationFailed(true);
+        }
       } finally {
         setLoadingAnalytics(false);
       }
@@ -203,6 +213,9 @@ export default function PortfolioPage() {
             )}
           </section>
         )}
+
+        {/* Holdings intelligence: teardown engine across the whole book */}
+        <HoldingsIntel positions={positions} />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
           {/* Positions */}
@@ -335,6 +348,10 @@ export default function PortfolioPage() {
                     ))}
                   </div>
                 </div>
+              ) : optimizationFailed ? (
+                <p className="text-sm text-textSecondary">
+                  Optimization unavailable — ensure the Python backend is running, then reload.
+                </p>
               ) : (
                 <p className="text-sm text-textSecondary">Calculating efficient frontier…</p>
               )}

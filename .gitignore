@@ -48,3 +48,4 @@ backend/__pycache__/
 *.pyc
 .ca-bundle.pem
 backend/.market_cache.json
+.gstack/

@@ -1,14 +1,15 @@
 "use client";
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
-  Crosshair, ShieldAlert, Target, Gauge, BrainCircuit,
-  Newspaper, TrendingUp, TrendingDown, Minus, ExternalLink,
+  Crosshair, ShieldAlert, Target, Gauge, BrainCircuit, WifiOff,
 } from 'lucide-react';
 import clsx from 'clsx';
 import Navigation from '../../components/Navigation';
 import SearchInput from '../../components/SearchInput';
 import Chart from '../../components/Chart';
+import NewsIntelPanel from '../../components/intel/NewsIntelPanel';
+import DeepAnalysisSection from '../../components/intel/DeepAnalysisSection';
 import { usePortfolio } from '../../context/PortfolioContext';
 import { API_BASE } from '../../lib/api';
 
@@ -68,10 +69,12 @@ function ScreenerContent() {
   const [quantSignals, setQuantSignals] = useState<any>(null);
   const [tickerNews, setTickerNews] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
 
   const { executeTrade, balance, positions } = usePortfolio();
   const [tradeShares, setTradeShares] = useState(1);
   const [tradeMessage, setTradeMessage] = useState('');
+  const tradeMsgTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const heldPosition = positions.find(p => p.symbol === symbol);
 
@@ -79,33 +82,62 @@ function ScreenerContent() {
     if (!quote?.regularMarketPrice) return;
     const result = executeTrade(symbol, type, tradeShares, quote.regularMarketPrice);
     setTradeMessage(result.message);
-    setTimeout(() => setTradeMessage(''), 3000);
+    // Track the timer so a rapid second trade doesn't get its confirmation
+    // wiped early by the first trade's stale timeout.
+    if (tradeMsgTimer.current) clearTimeout(tradeMsgTimer.current);
+    tradeMsgTimer.current = setTimeout(() => setTradeMessage(''), 3000);
   };
+  useEffect(() => () => { if (tradeMsgTimer.current) clearTimeout(tradeMsgTimer.current); }, []);
 
   useEffect(() => {
+    // Cancellation guard: rapid symbol switches leave earlier batches in
+    // flight; without this, a slow prior response overwrites the new symbol's
+    // data — and a trade could execute at the WRONG symbol's price.
+    let cancelled = false;
+
     async function fetchData() {
       setLoading(true);
+      // Reset before fetching so a partial failure can never leave the
+      // previous symbol's chart/signals rendered under the new symbol's name.
+      setQuote(null);
+      setChartData([]);
+      setMlInsights(null);
+      setQuantSignals(null);
+      setTickerNews(null);
+      setFetchError('');
       try {
         const [quoteRes, chartRes, mlRes, quantRes, newsRes] = await Promise.all([
           fetch(`${API_BASE}/api/quote?symbol=${symbol}`),
           fetch(`${API_BASE}/api/chart?symbol=${symbol}&interval=1d`),
-          fetch(`${API_BASE}/api/ml-insights?symbol=${symbol}`),
-          fetch(`${API_BASE}/api/quant-signals?symbol=${symbol}`),
-          fetch(`${API_BASE}/api/news/ticker?symbol=${symbol}`),
+          fetch(`${API_BASE}/api/ml-insights?symbol=${symbol}`).catch(() => null),
+          fetch(`${API_BASE}/api/quant-signals?symbol=${symbol}`).catch(() => null),
+          fetch(`${API_BASE}/api/news-intel?symbol=${symbol}`).catch(() => null),
         ]);
+        if (cancelled) return;
 
         const quoteData = await quoteRes.json();
-        const chartRaw = await chartRes.json();
-        const mlData = await mlRes.json();
-        const quantData = await quantRes.json();
-        const newsData = await newsRes.json();
+        const chartRaw = await chartRes.json().catch(() => null);
+        const mlData = mlRes ? await mlRes.json().catch(() => null) : null;
+        const quantData = quantRes ? await quantRes.json().catch(() => null) : null;
+        const newsData = newsRes ? await newsRes.json().catch(() => null) : null;
+        if (cancelled) return;
 
-        setQuote(quoteData);
-        setMlInsights(!mlData.error ? mlData : null);
-        setQuantSignals(!quantData.error ? quantData : null);
-        setTickerNews(!newsData.error ? newsData : null);
+        if (quoteRes.status === 429) {
+          // Header first; JSON body as fallback (CORS now exposes Retry-After,
+          // but the body works even without it)
+          const retryAfter = quoteRes.headers.get('Retry-After')
+            || (quoteData?.retry_after_seconds != null ? String(Math.ceil(quoteData.retry_after_seconds)) : null);
+          setFetchError(`Rate limited — too many requests. Try again in ${retryAfter || 'a few'} seconds.`);
+        } else if (quoteData?.error) {
+          setFetchError(`No market data for “${symbol}” — check the symbol (NSE tickers need the .NS suffix) or try again shortly.`);
+        } else {
+          setQuote(quoteData);
+        }
+        setMlInsights(mlData && !mlData.error ? mlData : null);
+        setQuantSignals(quantData && !quantData.error ? quantData : null);
+        setTickerNews(newsData && !newsData.error ? newsData : null);
 
-        if (chartRaw && chartRaw.quotes) {
+        if (chartRaw?.quotes) {
           const formattedData = chartRaw.quotes
             .filter((q: any) => q.close !== null && q.open !== null)
             .map((q: any) => ({
@@ -124,12 +156,16 @@ function ScreenerContent() {
         }
       } catch (err) {
         console.error("Failed to fetch data", err);
+        if (!cancelled) {
+          setFetchError('Market data backend unreachable — start it with: cd backend && python app.py');
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
     if (symbol) fetchData();
+    return () => { cancelled = true; };
   }, [symbol]);
 
   const levels = quantSignals?.levels;
@@ -138,6 +174,16 @@ function ScreenerContent() {
   const isBuy = quantSignals?.action === 'buy';
   const isSell = quantSignals?.action === 'sell';
   const signalColor = isBuy ? '#34D399' : isSell ? '#F87171' : '#FBBF24';
+  const currency = quote?.currency || 'USD';
+
+  // Stable identity so Chart's price-line effect only runs when levels change,
+  // not on every keystroke in the trade form.
+  const priceLines = useMemo(() => levels ? [
+    { price: levels.entry, color: '#60A5FA', lineWidth: 2, lineStyle: 0, title: 'ENTRY', axisLabelVisible: true },
+    { price: levels.stop_loss, color: '#F87171', lineWidth: 2, lineStyle: 3, title: 'STOP', axisLabelVisible: true },
+    { price: levels.target_1, color: '#34D399', lineWidth: 1, lineStyle: 3, title: 'T1', axisLabelVisible: true },
+    { price: levels.target_2, color: '#34D399', lineWidth: 2, lineStyle: 3, title: 'T2', axisLabelVisible: true },
+  ] : undefined, [levels]);
 
   const suggestedShares = levels && sizing && quote?.regularMarketPrice
     ? Math.floor((balance * sizing.recommended_fraction) / quote.regularMarketPrice)
@@ -154,119 +200,118 @@ function ScreenerContent() {
           <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-accentGreen" />
           <p className="text-sm text-textSecondary">Loading market data & quant models for {symbol}…</p>
         </div>
+      ) : fetchError ? (
+        <div className="glass-panel flex h-64 flex-col items-center justify-center gap-3 px-6 text-center">
+          <WifiOff size={22} className="text-accentAmber" />
+          <p className="max-w-md text-sm leading-relaxed text-textSecondary">{fetchError}</p>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_360px]">
-          {/* ---- Left column: chart + trade plan ---- */}
-          <div className="space-y-5">
-            <div className="glass-panel p-5">
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-semibold text-textPrimary">{quote?.shortName || symbol}</h2>
-                  <span className="text-xs uppercase tracking-widest text-textMuted">{symbol}</span>
-                </div>
-                <div className="flex items-baseline gap-3">
-                  <span className="text-3xl font-bold tabular text-textPrimary">
-                    {fmtUsd(quote?.regularMarketPrice, quote?.currency || 'USD')}
+        <div className="space-y-5">
+          {/* ---- Full-width chart ---- */}
+          <div className="glass-panel p-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold text-textPrimary">{quote?.shortName || symbol}</h2>
+                <span className="text-xs uppercase tracking-widest text-textMuted">{symbol}</span>
+              </div>
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1.5">
+                <span className="text-3xl font-bold tabular text-textPrimary">
+                  {fmtUsd(quote?.regularMarketPrice, currency)}
+                </span>
+                {quote?.regularMarketChangePercent !== undefined && (
+                  <span className={clsx(
+                    'whitespace-nowrap rounded-md px-2 py-1 text-sm font-semibold tabular',
+                    quote.regularMarketChangePercent >= 0
+                      ? 'bg-emerald-400/10 text-accentGreen'
+                      : 'bg-red-400/10 text-accentRed'
+                  )}>
+                    {quote.regularMarketChangePercent >= 0 ? '+' : ''}
+                    {quote.regularMarketChangePercent?.toFixed(2)}%
                   </span>
-                  {quote?.regularMarketChangePercent !== undefined && (
-                    <span className={clsx(
-                      'rounded-md px-2 py-1 text-sm font-semibold tabular',
-                      quote.regularMarketChangePercent >= 0
-                        ? 'bg-emerald-400/10 text-accentGreen'
-                        : 'bg-red-400/10 text-accentRed'
-                    )}>
-                      {quote.regularMarketChangePercent >= 0 ? '+' : ''}
-                      {quote.regularMarketChangePercent?.toFixed(2)}%
-                    </span>
-                  )}
-                  {quantSignals && (
-                    <span
-                      className="rounded-md px-2.5 py-1 text-sm font-bold"
-                      style={{ color: signalColor, background: `${signalColor}1a` }}
-                    >
-                      {quantSignals.signal}
-                    </span>
-                  )}
-                </div>
+                )}
+                {quantSignals && (
+                  <span
+                    className="whitespace-nowrap rounded-md px-2.5 py-1 text-sm font-bold"
+                    style={{ color: signalColor, background: `${signalColor}1a` }}
+                  >
+                    {quantSignals.signal}
+                  </span>
+                )}
               </div>
-              {chartData.length > 0 ? (
-                <Chart
-                  data={chartData}
-                  colors={{
-                    upColor: '#34D399',
-                    downColor: '#F87171',
-                    priceLines: levels ? [
-                      { price: levels.entry, color: '#60A5FA', lineWidth: 2, lineStyle: 0, title: 'ENTRY', axisLabelVisible: true },
-                      { price: levels.stop_loss, color: '#F87171', lineWidth: 2, lineStyle: 3, title: 'STOP', axisLabelVisible: true },
-                      { price: levels.target_1, color: '#34D399', lineWidth: 1, lineStyle: 3, title: 'T1', axisLabelVisible: true },
-                      { price: levels.target_2, color: '#34D399', lineWidth: 2, lineStyle: 3, title: 'T2', axisLabelVisible: true },
-                    ] : undefined
-                  }}
-                />
-              ) : (
-                <p className="py-12 text-center text-textSecondary">No chart data available.</p>
-              )}
             </div>
-
-            {/* Quant Trade Plan */}
-            {quantSignals && levels && (
-              <div className="glass-panel p-5" style={{ borderTop: `2px solid ${signalColor}` }}>
-                <div className="mb-4 flex items-center justify-between border-b border-borderSubtle pb-3">
-                  <h3 className="flex items-center gap-2 text-sm font-semibold text-textPrimary">
-                    <Crosshair size={15} style={{ color: signalColor }} /> Quant Trade Plan
-                    <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-textMuted">
-                      Systematic multi-factor
-                    </span>
-                  </h3>
-                  <div className="text-xs text-textMuted">
-                    Conviction <span className="font-semibold tabular text-textPrimary">{(quantSignals.conviction * 100).toFixed(0)}%</span>
-                    {' · '}Score <span className="font-semibold tabular" style={{ color: signalColor }}>{quantSignals.composite_score > 0 ? '+' : ''}{quantSignals.composite_score}</span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <div className="rounded-xl border border-accentBlue/25 bg-accentBlue/5 p-3">
-                    <div className="flex items-center gap-1.5 text-[11px] text-accentBlue"><Crosshair size={11} /> Entry (limit)</div>
-                    <div className="mt-1 text-lg font-bold tabular text-textPrimary">{fmtUsd(levels.entry)}</div>
-                  </div>
-                  <div className="rounded-xl border border-red-400/25 bg-red-400/5 p-3">
-                    <div className="flex items-center gap-1.5 text-[11px] text-accentRed"><ShieldAlert size={11} /> Stop Loss</div>
-                    <div className="mt-1 text-lg font-bold tabular text-textPrimary">{fmtUsd(levels.stop_loss)}</div>
-                  </div>
-                  <div className="rounded-xl border border-emerald-400/25 bg-emerald-400/5 p-3">
-                    <div className="flex items-center gap-1.5 text-[11px] text-accentGreen"><Target size={11} /> Target 1 (1.5R)</div>
-                    <div className="mt-1 text-lg font-bold tabular text-textPrimary">{fmtUsd(levels.target_1)}</div>
-                  </div>
-                  <div className="rounded-xl border border-emerald-400/25 bg-emerald-400/5 p-3">
-                    <div className="flex items-center gap-1.5 text-[11px] text-accentGreen"><Target size={11} /> Target 2 (3R)</div>
-                    <div className="mt-1 text-lg font-bold tabular text-textPrimary">{fmtUsd(levels.target_2)}</div>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <h4 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-textMuted">Factor votes</h4>
-                    {quantSignals.factors && Object.entries(quantSignals.factors).map(([k, v]) => (
-                      <FactorBar key={k} label={k} value={v as number} />
-                    ))}
-                  </div>
-                  <div>
-                    <h4 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-textMuted">Position sizing (half-Kelly)</h4>
-                    <StatRow label="Kelly fraction" value={`${(sizing.kelly_fraction * 100).toFixed(1)}%`} />
-                    <StatRow label="Recommended allocation" value={`${(sizing.recommended_fraction * 100).toFixed(1)}% of equity`} valueClass="text-accentCyan" />
-                    <StatRow label="Historical win rate" value={`${(sizing.win_rate * 100).toFixed(1)}%`} />
-                    <StatRow label="Payoff ratio" value={`${sizing.payoff_ratio}×`} />
-                    {suggestedShares !== null && suggestedShares > 0 && (
-                      <StatRow label="Suggested size" value={`≈ ${suggestedShares} shares`} valueClass="text-accentGreen" />
-                    )}
-                  </div>
-                </div>
-              </div>
+            {chartData.length > 0 ? (
+              <Chart
+                data={chartData}
+                height={560}
+                colors={{
+                  upColor: '#34D399',
+                  downColor: '#F87171',
+                  priceLines,
+                }}
+              />
+            ) : (
+              <p className="py-12 text-center text-textSecondary">No chart data available.</p>
             )}
           </div>
 
-          {/* ---- Right column ---- */}
-          <div className="space-y-5">
+          {/* Quant Trade Plan */}
+          {quantSignals && levels && (
+            <div className="glass-panel p-5" style={{ borderTop: `2px solid ${signalColor}` }}>
+              <div className="mb-4 flex items-center justify-between border-b border-borderSubtle pb-3">
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-textPrimary">
+                  <Crosshair size={15} style={{ color: signalColor }} /> Quant Trade Plan
+                  <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-textMuted">
+                    Systematic multi-factor
+                  </span>
+                </h3>
+                <div className="text-xs text-textMuted">
+                  Conviction <span className="font-semibold tabular text-textPrimary">{(quantSignals.conviction * 100).toFixed(0)}%</span>
+                  {' · '}Score <span className="font-semibold tabular" style={{ color: signalColor }}>{quantSignals.composite_score > 0 ? '+' : ''}{quantSignals.composite_score}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="rounded-xl border border-accentBlue/25 bg-accentBlue/5 p-3">
+                  <div className="flex items-center gap-1.5 text-[11px] text-accentBlue"><Crosshair size={11} /> Entry (limit)</div>
+                  <div className="mt-1 text-lg font-bold tabular text-textPrimary">{fmtUsd(levels.entry, currency)}</div>
+                </div>
+                <div className="rounded-xl border border-red-400/25 bg-red-400/5 p-3">
+                  <div className="flex items-center gap-1.5 text-[11px] text-accentRed"><ShieldAlert size={11} /> Stop Loss</div>
+                  <div className="mt-1 text-lg font-bold tabular text-textPrimary">{fmtUsd(levels.stop_loss, currency)}</div>
+                </div>
+                <div className="rounded-xl border border-emerald-400/25 bg-emerald-400/5 p-3">
+                  <div className="flex items-center gap-1.5 text-[11px] text-accentGreen"><Target size={11} /> Target 1 (1.5R)</div>
+                  <div className="mt-1 text-lg font-bold tabular text-textPrimary">{fmtUsd(levels.target_1, currency)}</div>
+                </div>
+                <div className="rounded-xl border border-emerald-400/25 bg-emerald-400/5 p-3">
+                  <div className="flex items-center gap-1.5 text-[11px] text-accentGreen"><Target size={11} /> Target 2 (3R)</div>
+                  <div className="mt-1 text-lg font-bold tabular text-textPrimary">{fmtUsd(levels.target_2, currency)}</div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <h4 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-textMuted">Factor votes</h4>
+                  {quantSignals.factors && Object.entries(quantSignals.factors).map(([k, v]) => (
+                    <FactorBar key={k} label={k} value={v as number} />
+                  ))}
+                </div>
+                <div>
+                  <h4 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-textMuted">Position sizing (half-Kelly)</h4>
+                  <StatRow label="Kelly fraction" value={`${(sizing.kelly_fraction * 100).toFixed(1)}%`} />
+                  <StatRow label="Recommended allocation" value={`${(sizing.recommended_fraction * 100).toFixed(1)}% of equity`} valueClass="text-accentCyan" />
+                  <StatRow label="Historical win rate" value={`${(sizing.win_rate * 100).toFixed(1)}%`} />
+                  <StatRow label="Payoff ratio" value={`${sizing.payoff_ratio}×`} />
+                  {suggestedShares !== null && suggestedShares > 0 && (
+                    <StatRow label="Suggested size" value={`≈ ${suggestedShares} shares`} valueClass="text-accentGreen" />
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ---- Secondary panels ---- */}
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
             {/* Paper trading */}
             <Panel title="Paper Trading" icon={<Gauge size={15} className="text-accentGreen" />} accent="#34D399">
               <StatRow label="Available Cash" value={fmtUsd(balance)} valueClass="text-accentGreen font-bold" />
@@ -328,13 +373,13 @@ function ScreenerContent() {
                 />
                 <StatRow label="Z-Score (20d)" value={ind.zscore_20d} valueClass={Math.abs(ind.zscore_20d) > 2 ? 'text-accentAmber' : undefined} />
                 {ind.half_life_days && <StatRow label="Mean-reversion half-life" value={`${ind.half_life_days}d`} />}
-                <StatRow label="VWAP (20d)" value={fmtUsd(ind.vwap_20d)} />
+                <StatRow label="VWAP (20d)" value={fmtUsd(ind.vwap_20d, currency)} />
                 <StatRow
                   label="VWAP deviation"
                   value={`${ind.vwap_deviation_pct > 0 ? '+' : ''}${ind.vwap_deviation_pct}%`}
                   valueClass={ind.vwap_deviation_pct >= 0 ? 'text-accentGreen' : 'text-accentRed'}
                 />
-                <StatRow label="ATR (14)" value={fmtUsd(ind.atr_14)} />
+                <StatRow label="ATR (14)" value={fmtUsd(ind.atr_14, currency)} />
                 <StatRow label="Realized vol (ann.)" value={`${(ind.realized_vol_annual * 100).toFixed(1)}%`} />
                 <StatRow label="Vol regime percentile" value={`${ind.vol_regime_percentile}%`} />
                 <StatRow label="Bollinger %B" value={ind.bollinger_pct_b} />
@@ -352,7 +397,7 @@ function ScreenerContent() {
                 />
                 <StatRow
                   label="7-day forecast (Prophet)"
-                  value={fmtUsd(mlInsights.prophet_7d_forecast, quote?.currency || 'USD')}
+                  value={fmtUsd(mlInsights.prophet_7d_forecast, currency)}
                   valueClass={mlInsights.prophet_7d_forecast > quote?.regularMarketPrice ? 'text-accentGreen' : 'text-accentRed'}
                 />
                 <div className="mt-3">
@@ -381,42 +426,22 @@ function ScreenerContent() {
               <StatRow label="Market Cap" value={quote?.marketCap ? (quote.marketCap / 1e9).toFixed(2) + 'B' : '—'} />
               <StatRow label="Volume" value={quote?.regularMarketVolume ? (quote.regularMarketVolume / 1e6).toFixed(2) + 'M' : '—'} />
               <StatRow label="Avg Volume (3mo)" value={quote?.averageDailyVolume3Month ? (quote.averageDailyVolume3Month / 1e6).toFixed(2) + 'M' : '—'} />
-              <StatRow label="52W High" value={fmtUsd(quote?.fiftyTwoWeekHigh, quote?.currency || 'USD')} />
-              <StatRow label="52W Low" value={fmtUsd(quote?.fiftyTwoWeekLow, quote?.currency || 'USD')} />
+              <StatRow label="52W High" value={fmtUsd(quote?.fiftyTwoWeekHigh, currency)} />
+              <StatRow label="52W Low" value={fmtUsd(quote?.fiftyTwoWeekLow, currency)} />
             </Panel>
 
-            {/* Ticker news */}
-            {tickerNews?.articles?.length > 0 && (
-              <Panel title={`${symbol} News`} icon={<Newspaper size={15} className="text-accentBlue" />}>
-                <div className="mb-2 flex items-center gap-2 text-[11px] text-textMuted">
-                  Sentiment:
-                  <span className={clsx(
-                    'flex items-center gap-1 font-semibold',
-                    tickerNews.mood_index >= 55 ? 'text-accentGreen' : tickerNews.mood_index <= 45 ? 'text-accentRed' : 'text-accentAmber'
-                  )}>
-                    {tickerNews.mood_index >= 55 ? <TrendingUp size={11} /> : tickerNews.mood_index <= 45 ? <TrendingDown size={11} /> : <Minus size={11} />}
-                    {tickerNews.mood_index}/100
-                  </span>
-                </div>
-                <div className="space-y-2.5">
-                  {tickerNews.articles.slice(0, 5).map((a: any, i: number) => (
-                    <a
-                      key={i}
-                      href={a.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group block"
-                    >
-                      <p className="text-xs leading-snug text-textSecondary group-hover:text-textPrimary transition-colors">
-                        {a.title}
-                        <ExternalLink size={10} className="ml-1 inline opacity-0 group-hover:opacity-60" />
-                      </p>
-                    </a>
-                  ))}
-                </div>
-              </Panel>
-            )}
+            {/* Multi-source news intelligence */}
+            <NewsIntelPanel data={tickerNews} />
           </div>
+        </div>
+      )}
+
+      {/* ---- Deep analysis: verdict, fundamentals x-ray, AI research note ----
+          Gated on !fetchError too: an unknown symbol or outage must not render
+          a contradictory HOLD verdict beneath the error panel. */}
+      {!loading && !fetchError && (
+        <div className="mt-5">
+          <DeepAnalysisSection symbol={symbol} currency={currency} />
         </div>
       )}
     </div>

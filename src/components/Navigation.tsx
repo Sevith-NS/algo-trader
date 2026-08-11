@@ -18,8 +18,17 @@ export default function Navigation() {
     const handleScroll = () => {
       setScrolled(window.scrollY > 20);
     };
+    // Landing page scrolls via locomotive (window.scrollY stays 0); it
+    // dispatches 'app:scroll' with the virtual position instead.
+    const handleAppScroll = (e: Event) => {
+      setScrolled(((e as CustomEvent).detail?.y ?? 0) > 20);
+    };
     window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener('app:scroll', handleAppScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('app:scroll', handleAppScroll);
+    };
   }, []);
 
   return (
@@ -41,8 +50,9 @@ export default function Navigation() {
           </div>
 
           {/* Desktop Menu */}
-          <div className="hidden md:flex items-center space-x-2">
+          <div className="hidden lg:flex items-center space-x-2">
             <NavLink href="/screener" text="Terminal" />
+            <NavLink href="/discover" text="Discover" />
             <NavLink href="/portfolio" text="Portfolio" />
             <NavLink href="/markets" text="Markets" />
             <NavLink href="/news" text="News" />
@@ -51,17 +61,19 @@ export default function Navigation() {
           </div>
 
           {/* User Auth Section */}
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden lg:flex items-center gap-4">
             {session ? (
               <div className="relative">
-                <button 
+                <button
                   onClick={() => setProfileOpen(!profileOpen)}
+                  aria-expanded={profileOpen}
+                  aria-haspopup="menu"
                   className="flex items-center gap-2 text-sm text-gray-300 hover:text-white px-2 py-1.5 rounded-lg transition-all"
                 >
                   <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-gray-300">
                     <User size={12} />
                   </div>
-                  <span className="font-medium">{session.user?.name}</span>
+                  <span className="max-w-[14ch] truncate font-medium">{session.user?.name}</span>
                   <ChevronDown size={14} className={clsx("transition-transform duration-200", profileOpen && "rotate-180")} />
                 </button>
                 
@@ -98,10 +110,12 @@ export default function Navigation() {
           </div>
 
           {/* Mobile menu button */}
-          <div className="flex md:hidden">
+          <div className="flex lg:hidden">
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-lg text-gray-400 hover:text-white focus:outline-none transition-colors"
+              aria-label={isOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={isOpen}
+              className="inline-flex items-center justify-center p-2 rounded-lg text-gray-400 hover:text-white transition-colors"
             >
               {isOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
@@ -116,10 +130,11 @@ export default function Navigation() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden overflow-hidden border-b border-white/10 bg-[#0a0a0a]"
+            className="lg:hidden overflow-hidden border-b border-white/10 bg-[#0a0a0a]"
           >
             <div className="px-4 pt-2 pb-6 space-y-1">
               <MobileNavLink href="/screener" text="Terminal" onClick={() => setIsOpen(false)} />
+              <MobileNavLink href="/discover" text="Discover" onClick={() => setIsOpen(false)} />
               <MobileNavLink href="/portfolio" text="Portfolio" onClick={() => setIsOpen(false)} />
               <MobileNavLink href="/markets" text="Markets" onClick={() => setIsOpen(false)} />
               <MobileNavLink href="/news" text="News" onClick={() => setIsOpen(false)} />

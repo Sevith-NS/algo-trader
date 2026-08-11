@@ -108,12 +108,19 @@ button {
   border-color: var(--border-strong);
 }
 
-/* Gradient headline text */
+/* Gradient headline text — solid fallback first so the headline can never
+   render invisible where background-clip:text is unsupported (or backgrounds
+   are disabled); the transparent fill only applies under @supports. */
 .text-gradient {
+  color: #F1F5F9;
   background: linear-gradient(120deg, #F1F5F9 30%, #94A3B8 100%);
   -webkit-background-clip: text;
   background-clip: text;
-  color: transparent;
+}
+@supports (-webkit-background-clip: text) or (background-clip: text) {
+  .text-gradient {
+    color: transparent;
+  }
 }
 
 /* Numeric readouts */
@@ -127,4 +134,44 @@ button {
 }
 .hover-lift:hover {
   transform: translateY(-2px);
+}
+
+/* ==========================================================================
+   Reduced motion — hard requirement (CLAUDE.md).
+   One central kill-switch for all CSS-driven motion: marquees, gradients,
+   shine, meteors, pulses, transitions. Loading spinners are carved out —
+   a frozen spinner reads as "hung", and a slow rotation conveys state
+   without vestibular-trigger motion.
+   JS-driven motion (GSAP, anime.js, R3F, framer springs) is gated in the
+   components themselves via usePrefersReducedMotion / gsap.matchMedia.
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *:not(.animate-spin),
+  *:not(.animate-spin)::before,
+  *:not(.animate-spin)::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-spin {
+    animation-duration: 1.8s !important;
+  }
+}
+
+/* Visible keyboard focus (nav buttons previously used focus:outline-none) */
+:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+/* Locomotive-scroll scrollbar: the stock thumb is black-on-near-black —
+   restyle to the slate token family so scroll position stays visible. */
+.c-scrollbar_thumb {
+  background-color: rgba(148, 163, 184, 0.35);
+  opacity: 1;
+}
+.c-scrollbar:hover .c-scrollbar_thumb,
+.has-scroll-dragging .c-scrollbar_thumb {
+  background-color: rgba(148, 163, 184, 0.55);
 }

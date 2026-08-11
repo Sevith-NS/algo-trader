@@ -27,7 +27,12 @@ def _rsi(close: pd.Series, period: int = 14) -> pd.Series:
     gain = delta.clip(lower=0).ewm(alpha=1 / period, adjust=False).mean()
     loss = (-delta.clip(upper=0)).ewm(alpha=1 / period, adjust=False).mean()
     rs = gain / loss.replace(0, np.nan)
-    return 100 - (100 / (1 + rs))
+    rsi = 100 - (100 / (1 + rs))
+    # Wilder: zero average loss with gains present is RSI 100, not undefined;
+    # only a truly flat window (0/0) stays NaN. Numerically twinned with the
+    # frontend rsi() in src/lib/indicators.ts — keep the two in lockstep.
+    rsi[(loss == 0) & (gain > 0)] = 100.0
+    return rsi
 
 
 def _atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
@@ -70,7 +75,10 @@ def get_quant_signals(symbol: str):
 
         # --- Mean reversion (OU z-score around 20d mean) ---
         sma20 = close.rolling(20).mean()
-        std20 = close.rolling(20).std()
+        # ddof=0 (population std) is the classic Bollinger convention and what
+        # the frontend bollinger() in src/lib/indicators.ts computes — pandas'
+        # default ddof=1 made the same bands differ between chart and signals.
+        std20 = close.rolling(20).std(ddof=0)
         zscore = float((last_close - sma20.iloc[-1]) / std20.iloc[-1]) if std20.iloc[-1] > 0 else 0.0
         half_life = _half_life(close - sma20)
 

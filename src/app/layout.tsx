@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import "locomotive-scroll/dist/locomotive-scroll.css";
 import "./globals.css";
 import { PortfolioProvider } from "../context/PortfolioContext";
 import AuthProvider from "../components/AuthProvider";

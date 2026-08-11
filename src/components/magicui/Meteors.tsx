@@ -1,0 +1,62 @@
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import { cn } from '@/lib/utils';
+
+interface MeteorsProps {
+  number?: number;
+  minDelay?: number;
+  maxDelay?: number;
+  minDuration?: number;
+  maxDuration?: number;
+  angle?: number;
+  className?: string;
+}
+
+export function Meteors({
+  number = 20,
+  minDelay = 0.2,
+  maxDelay = 1.2,
+  minDuration = 2,
+  maxDuration = 10,
+  angle = 215,
+  className,
+}: MeteorsProps) {
+  const [meteorStyles, setMeteorStyles] = useState<Array<React.CSSProperties>>([]);
+
+  // generate on the client to avoid SSR hydration mismatch from Math.random
+  useEffect(() => {
+    // Reduced motion: render nothing — a frozen meteor field is just a row of
+    // stray dots along the card edge (the CSS kill-switch can't fix that).
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setMeteorStyles([]);
+      return;
+    }
+    const styles = [...new Array(number)].map(() => ({
+      '--angle': `${-angle}deg`,
+      top: '-5%',
+      left: `calc(0% + ${Math.floor(Math.random() * window.innerWidth)}px)`,
+      animationDelay: `${Math.random() * (maxDelay - minDelay) + minDelay}s`,
+      animationDuration: `${Math.floor(Math.random() * (maxDuration - minDuration) + minDuration)}s`,
+    }));
+    setMeteorStyles(styles as Array<React.CSSProperties>);
+  }, [number, minDelay, maxDelay, minDuration, maxDuration, angle]);
+
+  return (
+    <>
+      {meteorStyles.map((style, idx) => (
+        <span
+          key={idx}
+          style={style}
+          className={cn(
+            'pointer-events-none absolute size-0.5 rotate-[var(--angle)] animate-meteor rounded-full bg-emerald-300 shadow-[0_0_0_1px_#ffffff10]',
+            className,
+          )}
+        >
+          {/* Meteor Tail */}
+          <div className="pointer-events-none absolute top-1/2 -z-10 h-px w-[50px] -translate-y-1/2 bg-gradient-to-r from-emerald-300 to-transparent" />
+        </span>
+      ))}
+    </>
+  );
+}

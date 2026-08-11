@@ -5,6 +5,8 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Activity, Globe2, AlertCircle, Info, Sparkles, TrendingUp, TrendingDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Navigation from '../../components/Navigation';
+import { API_BASE } from '../../lib/api';
 
 // Globe must be dynamically imported with ssr: false since it uses the window object
 const Globe = dynamic(() => import('react-globe.gl'), { ssr: false });
@@ -29,13 +31,21 @@ export default function GeotradePage() {
   useEffect(() => {
     // Topojson is not required if we use standard geojson format directly.
     fetch('https://raw.githubusercontent.com/vasturiano/react-globe.gl/master/example/datasets/ne_110m_admin_0_countries.geojson')
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error(`geojson ${res.status}`);
+        return res.json();
+      })
       .then(data => {
         setCountries(data);
+      })
+      .catch(() => {
+        // Without country shapes there is no globe to draw — say so instead
+        // of leaving a silent black page.
+        setError('Could not load world map data (github.com unreachable). Check your connection and reload.');
       });
 
     // Fetch the live LLM Geotrade Analysis
-    fetch('http://127.0.0.1:5000/api/geotrade')
+    fetch(`${API_BASE}/api/geotrade`)
       .then(res => res.json())
       .then(data => {
         if (data.error) {
@@ -55,9 +65,15 @@ export default function GeotradePage() {
     return analysisData.find(d => d.countryCode === countryCode);
   };
 
+  // Natural Earth ships ISO_A3='-99' for France, Norway, Kosovo etc. —
+  // fall back to ADM0_A3 so they color and route correctly.
+  const isoOf = (feat: any) =>
+    feat?.properties?.ISO_A3 && feat.properties.ISO_A3 !== '-99'
+      ? feat.properties.ISO_A3
+      : feat?.properties?.ADM0_A3;
+
   const getPolygonColor = (feat: any) => {
-    // Note: ISO_A3 matches USA, CHN, IND etc.
-    const isoCode = feat.properties.ISO_A3;
+    const isoCode = isoOf(feat);
     const info = getCountryInfo(isoCode);
     
     if (!info) return 'rgba(200, 200, 200, 0.1)'; // Neutral if no data
@@ -74,7 +90,7 @@ export default function GeotradePage() {
 
   const hoveredInfo = useMemo(() => {
     if (!hoverD) return null;
-    return getCountryInfo(hoverD.properties.ISO_A3);
+    return getCountryInfo(isoOf(hoverD));
   }, [hoverD, analysisData]);
 
   // Adjust globe view on start
@@ -88,7 +104,8 @@ export default function GeotradePage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white pt-24 relative overflow-hidden">
-      
+      <Navigation />
+
       {/* Background gradient effects */}
       <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-accentGreen/5 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
       
@@ -141,9 +158,8 @@ export default function GeotradePage() {
             polygonLabel={() => ''} // Clear default tooltip since we draw a custom one
             onPolygonHover={setHoverD}
             onPolygonClick={(feat: any) => {
-              if (feat && feat.properties && feat.properties.ISO_A3) {
-                router.push(`/geotrade/${feat.properties.ISO_A3}`);
-              }
+              const iso = isoOf(feat);
+              if (iso) router.push(`/geotrade/${iso}`);
             }}
           />
         )}

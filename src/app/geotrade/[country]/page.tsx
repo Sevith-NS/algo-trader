@@ -6,6 +6,8 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, BookOpen, Newspaper, TrendingUp, AlertTriangle, Activity } from 'lucide-react';
 import Link from 'next/link';
 import clsx from 'clsx';
+import Navigation from '../../../components/Navigation';
+import { API_BASE } from '../../../lib/api';
 
 interface DeepAnalysis {
   countryName: string;
@@ -27,7 +29,7 @@ export default function CountryDeepDive({ params }: { params: Promise<{ country:
 
   useEffect(() => {
     setLoading(true);
-    fetch(`http://127.0.0.1:5000/api/geotrade/deep?country=${country}`)
+    fetch(`${API_BASE}/api/geotrade/deep?country=${country}`)
       .then(res => res.json())
       .then(resData => {
         if (resData.error) {
@@ -44,6 +46,7 @@ export default function CountryDeepDive({ params }: { params: Promise<{ country:
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white pt-28 px-6 sm:px-12 lg:px-24 pb-20 relative overflow-hidden">
+      <Navigation />
       {/* Background glow */}
       <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-accentGreen/5 rounded-full blur-[150px] pointer-events-none" />
 
