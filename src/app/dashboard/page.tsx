@@ -72,16 +72,27 @@ export default function DashboardPage() {
       {/* Dashboard Toolbar */}
       <div className="bg-bgSecondary border-b border-borderSubtle px-4 py-2 flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <h1 className="text-white font-bold opacity-80 flex items-center gap-2">
+          <h1 className="text-textPrimary font-bold opacity-80 flex items-center gap-2">
             <Activity size={18} className="text-accentBlue" /> Terminal Workspace
           </h1>
           <div className="h-4 w-px bg-borderSubtle"></div>
-          <div className="flex items-center gap-2 bg-black/40 rounded px-2 py-1 border border-borderSubtle">
-            <span className="text-xs text-textSecondary uppercase">Active Asset</span>
-            <input 
+          {/* The span was floating next to the input, not bound to it: a real
+              <label> gives the field a name for assistive tech and makes the
+              text a click target that focuses the input. */}
+          <div className="flex min-h-9 items-center gap-2 rounded-lg border border-borderSubtle bg-black/40 px-2">
+            <label
+              htmlFor="dashboard-symbol"
+              className="cursor-pointer font-mono text-[10px] uppercase tracking-[0.18em] text-textMuted"
+            >
+              Active asset
+            </label>
+            <input
+              id="dashboard-symbol"
               value={symbol}
               onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-              className="bg-transparent text-white w-16 text-sm font-bold uppercase focus:outline-none focus:text-accentGreen"
+              spellCheck={false}
+              autoComplete="off"
+              className="ticker w-20 bg-transparent text-sm uppercase text-textPrimary transition-colors duration-150 focus:text-accentGreen"
             />
           </div>
         </div>
@@ -89,7 +100,7 @@ export default function DashboardPage() {
         <div className="flex gap-2">
           <button 
             onClick={() => { localStorage.removeItem('vanguard_layout'); window.location.reload(); }}
-            className="text-xs text-textSecondary hover:text-white px-3 py-1.5 border border-borderSubtle rounded transition-colors"
+            className="text-xs text-textSecondary hover:text-textPrimary px-3 py-1.5 border border-borderSubtle rounded transition-colors"
           >
             Reset Layout
           </button>
@@ -117,14 +128,14 @@ export default function DashboardPage() {
               </span>
             </div>
             <div className="flex-1 w-full h-full relative p-2">
-              {mockChartData.length > 0 && <DynamicChart data={mockChartData} />}
+              {mockChartData.length > 0 && <DynamicChart data={mockChartData} symbol={symbol} />}
             </div>
           </div>
 
           {/* Portfolio Summary Widget */}
           <div key="portfolio" className="glass-panel overflow-hidden flex flex-col relative group">
             <div className="widget-header bg-black/40 p-2 cursor-move border-b border-borderSubtle flex justify-between items-center">
-              <span className="text-sm font-bold flex items-center gap-2 text-white">
+              <span className="text-sm font-bold flex items-center gap-2 text-textPrimary">
                 <PieChart size={16} className="text-accentPurple"/> Portfolio Quick View
               </span>
             </div>
@@ -134,7 +145,7 @@ export default function DashboardPage() {
               <div className="mt-4 space-y-2">
                 <div className="flex justify-between text-sm border-b border-white/5 pb-1">
                   <span>Buying Power</span>
-                  <span className="text-white">$100,000.00</span>
+                  <span className="text-textPrimary">$100,000.00</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Day P&L</span>
@@ -162,7 +173,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex justify-between items-center bg-black/30 p-2 rounded border-l-2 border-accentRed">
                 <span className="text-sm text-textSecondary">Smart Stop Loss</span>
-                <span className="text-sm font-bold text-white">$142.50</span>
+                <span className="text-sm font-bold text-textPrimary">$142.50</span>
               </div>
             </div>
           </div>
@@ -171,20 +182,20 @@ export default function DashboardPage() {
           <div key="community" className="glass-panel overflow-hidden flex flex-col relative group">
             <div className="widget-header bg-black/40 p-2 cursor-move border-b border-borderSubtle flex justify-between items-center">
               <span className="text-sm font-bold flex items-center gap-2">
-                <Users size={16} className="text-yellow-500"/> Live Community Sentiment
+                <Users size={16} className="text-accentAmber"/> Live Community Sentiment
               </span>
             </div>
             <div className="flex-1 p-4 overflow-y-auto space-y-3">
               <div className="border-l-2 border-accentGreen pl-3 pb-2 border-b border-borderSubtle">
                 <div className="flex justify-between">
-                  <span className="text-xs font-bold text-white">TSLA Gap Fill</span>
+                  <span className="text-xs font-bold text-textPrimary">TSLA Gap Fill</span>
                   <span className="text-xs text-accentGreen">BULLISH</span>
                 </div>
                 <div className="text-xs text-textSecondary mt-1">AI Conf: 85/100</div>
               </div>
               <div className="border-l-2 border-accentRed pl-3 pb-2 border-b border-borderSubtle">
                 <div className="flex justify-between">
-                  <span className="text-xs font-bold text-white">AAPL Rejection</span>
+                  <span className="text-xs font-bold text-textPrimary">AAPL Rejection</span>
                   <span className="text-xs text-accentRed">BEARISH</span>
                 </div>
                 <div className="text-xs text-textSecondary mt-1">AI Conf: 60/100</div>

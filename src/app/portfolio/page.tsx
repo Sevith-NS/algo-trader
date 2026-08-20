@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import Navigation from '../../components/Navigation';
+import { PageShell, PageHeader } from '../../components/PageHeader';
+import HoldingsIntel from '../../components/intel/HoldingsIntel';
 import { usePortfolio } from '../../context/PortfolioContext';
 import { API_BASE, apiPost } from '../../lib/api';
 
@@ -20,7 +22,7 @@ function MetricTile({ label, value, sub, tone }: {
 }) {
   return (
     <div className="rounded-xl border border-borderSubtle bg-white/[0.02] p-4">
-      <div className="text-[11px] uppercase tracking-wider text-textMuted">{label}</div>
+      <div className="text-[11px] font-mono uppercase tracking-wider text-textMuted">{label}</div>
       <div className={clsx(
         'mt-1 text-xl font-bold tabular',
         tone === 'good' && 'text-accentGreen',
@@ -39,6 +41,7 @@ export default function PortfolioPage() {
   const { balance, positions, trades, resetPortfolio } = usePortfolio();
   const [livePrices, setLivePrices] = useState<Record<string, number>>({});
   const [optimization, setOptimization] = useState<any>(null);
+  const [optimizationFailed, setOptimizationFailed] = useState(false);
   const [analytics, setAnalytics] = useState<any>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
 
@@ -58,7 +61,9 @@ export default function PortfolioPage() {
           }
         })
       );
-      setLivePrices(prices);
+      // Merge, don't replace: one failed tick (backend restart, throttle)
+      // must not wipe known prices and snap the whole book's P&L to $0.
+      setLivePrices(prev => ({ ...prev, ...prices }));
     };
     fetchPrices();
     const interval = setInterval(fetchPrices, 30000);
@@ -74,6 +79,7 @@ export default function PortfolioPage() {
     }
     const run = async () => {
       setLoadingAnalytics(true);
+      setOptimizationFailed(false);
       try {
         const [analyticsRes, optRes] = await Promise.all([
           apiPost('/api/portfolio-analytics', { positions, balance }).catch(() => null),
@@ -82,7 +88,12 @@ export default function PortfolioPage() {
             : Promise.resolve(null),
         ]);
         if (analyticsRes && !analyticsRes.error) setAnalytics(analyticsRes);
-        if (optRes && !optRes.error) setOptimization(optRes);
+        if (optRes && !optRes.error) {
+          setOptimization(optRes);
+        } else if (positions.length >= 2) {
+          // Don't leave the panel saying "Calculating…" forever on failure
+          setOptimizationFailed(true);
+        }
       } finally {
         setLoadingAnalytics(false);
       }
@@ -108,8 +119,13 @@ export default function PortfolioPage() {
     <div className="flex min-h-screen flex-col">
       <Navigation />
 
-      <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 pb-16 pt-28 sm:px-6 lg:px-8">
-        {/* Header */}
+      <PageShell className="flex-1">
+        <PageHeader
+          title="Portfolio"
+          description="Positions, allocation and tail risk on $100k of paper capital. Risk is stated in currency, not abstractions."
+        />
+
+        {/* Account summary */}
         <div className="glass-panel mb-6 flex flex-wrap items-center justify-between gap-6 p-6">
           <div className="flex flex-wrap items-center gap-10">
             <div>
@@ -124,15 +140,15 @@ export default function PortfolioPage() {
             </div>
             <div className="hidden gap-8 sm:flex">
               <div>
-                <div className="text-[11px] uppercase tracking-wider text-textMuted">Cash</div>
+                <div className="text-[11px] font-mono uppercase tracking-wider text-textMuted">Cash</div>
                 <div className="mt-1 text-lg font-semibold tabular text-textPrimary">{fmt(balance)}</div>
               </div>
               <div>
-                <div className="text-[11px] uppercase tracking-wider text-textMuted">Invested</div>
+                <div className="text-[11px] font-mono uppercase tracking-wider text-textMuted">Invested</div>
                 <div className="mt-1 text-lg font-semibold tabular text-textPrimary">{fmt(invested)}</div>
               </div>
               <div>
-                <div className="text-[11px] uppercase tracking-wider text-textMuted">Unrealized P&L</div>
+                <div className="text-[11px] font-mono uppercase tracking-wider text-textMuted">Unrealized P&L</div>
                 <div className={clsx('mt-1 text-lg font-semibold tabular', unrealized >= 0 ? 'text-accentGreen' : 'text-accentRed')}>
                   {unrealized >= 0 ? '+' : ''}{fmt(unrealized)}
                 </div>
@@ -154,7 +170,7 @@ export default function PortfolioPage() {
           <section className="glass-panel mb-6 p-5" style={{ borderTop: '2px solid #F87171' }}>
             <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-textPrimary">
               <ShieldAlert size={15} className="text-accentRed" /> Risk Analytics
-              <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-textMuted">1y daily · 95% confidence</span>
+              <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wide text-textMuted">1y daily · 95% confidence</span>
             </h2>
             {loadingAnalytics && !risk ? (
               <p className="text-sm text-textSecondary">Computing VaR, drawdown and risk-adjusted returns…</p>
@@ -198,11 +214,14 @@ export default function PortfolioPage() {
               </div>
             ) : (
               <p className="text-sm text-textSecondary">
-                Risk analytics unavailable — ensure the Python backend is running.
+                Risk analytics unavailable. Ensure the Python backend is running.
               </p>
             )}
           </section>
         )}
+
+        {/* Holdings intelligence: teardown engine across the whole book */}
+        <HoldingsIntel positions={positions} />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
           {/* Positions */}
@@ -215,7 +234,7 @@ export default function PortfolioPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse text-sm">
                     <thead>
-                      <tr className="border-b border-borderSubtle text-left text-[11px] uppercase tracking-wider text-textMuted">
+                      <tr className="border-b border-borderSubtle text-left text-[11px] font-mono uppercase tracking-wider text-textMuted">
                         <th className="py-2.5 font-medium">Symbol</th>
                         <th className="py-2.5 font-medium">Shares</th>
                         <th className="py-2.5 font-medium">Avg Price</th>
@@ -237,7 +256,7 @@ export default function PortfolioPage() {
 
                         return (
                           <tr key={pos.symbol} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
-                            <td className="py-3 font-bold text-textPrimary">{pos.symbol}</td>
+                            <td className="ticker py-3 text-textPrimary">{pos.symbol}</td>
                             <td className="py-3 tabular">{pos.shares}</td>
                             <td className="py-3 tabular">{fmt(pos.averagePrice)}</td>
                             <td className="py-3 tabular">{livePrices[pos.symbol] ? fmt(currentPrice) : '…'}</td>
@@ -284,7 +303,7 @@ export default function PortfolioPage() {
                   {Object.entries(analytics.sector_allocation).map(([sector, w], i) => (
                     <div
                       key={sector}
-                      className="h-full transition-all duration-700"
+                      className="h-full transition-[width] duration-700"
                       style={{ width: `${(w as number) * 100}%`, background: SECTOR_COLORS[i % SECTOR_COLORS.length] }}
                       title={`${sector}: ${((w as number) * 100).toFixed(1)}%`}
                     />
@@ -326,7 +345,7 @@ export default function PortfolioPage() {
                     <span className="tabular font-bold">{optimization.portfolio_sharpe_ratio.toFixed(2)}</span>
                   </div>
                   <div className="mt-3 border-t border-borderSubtle pt-3">
-                    <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-textMuted">Optimal max-Sharpe weights</h4>
+                    <h4 className="mb-2 text-[11px] font-semibold font-mono uppercase tracking-wider text-textMuted">Optimal max-Sharpe weights</h4>
                     {Object.entries(optimization.asset_details).map(([sym, details]: [string, any]) => (
                       <div key={sym} className="flex items-center justify-between py-1 text-xs">
                         <span className="text-textSecondary">{sym} <span className="text-textMuted">(β {details.beta.toFixed(2)})</span></span>
@@ -335,6 +354,10 @@ export default function PortfolioPage() {
                     ))}
                   </div>
                 </div>
+              ) : optimizationFailed ? (
+                <p className="text-sm text-textSecondary">
+                  Optimization unavailable. Ensure the Python backend is running, then reload.
+                </p>
               ) : (
                 <p className="text-sm text-textSecondary">Calculating efficient frontier…</p>
               )}
@@ -373,7 +396,7 @@ export default function PortfolioPage() {
             </div>
           </div>
         </div>
-      </main>
+      </PageShell>
     </div>
   );
 }

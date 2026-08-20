@@ -48,3 +48,8 @@ backend/__pycache__/
 *.pyc
 .ca-bundle.pem
 backend/.market_cache.json
+# Generated India market caches: rebuilt on demand from the NSE index archives
+# and the Groww instrument master. Snapshots, not source.
+backend/.nse_segments.json
+backend/.groww_instruments.json
+.gstack/

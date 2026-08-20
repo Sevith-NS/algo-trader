@@ -6,6 +6,8 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, BookOpen, Newspaper, TrendingUp, AlertTriangle, Activity } from 'lucide-react';
 import Link from 'next/link';
 import clsx from 'clsx';
+import Navigation from '../../../components/Navigation';
+import { API_BASE } from '../../../lib/api';
 
 interface DeepAnalysis {
   countryName: string;
@@ -27,7 +29,7 @@ export default function CountryDeepDive({ params }: { params: Promise<{ country:
 
   useEffect(() => {
     setLoading(true);
-    fetch(`http://127.0.0.1:5000/api/geotrade/deep?country=${country}`)
+    fetch(`${API_BASE}/api/geotrade/deep?country=${country}`)
       .then(res => res.json())
       .then(resData => {
         if (resData.error) {
@@ -43,12 +45,13 @@ export default function CountryDeepDive({ params }: { params: Promise<{ country:
   }, [country]);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white pt-28 px-6 sm:px-12 lg:px-24 pb-20 relative overflow-hidden">
+    <div className="relative min-h-screen overflow-hidden bg-bgPrimary px-4 pb-20 pt-28 text-textPrimary sm:px-6 lg:px-8">
+      <Navigation />
       {/* Background glow */}
       <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-accentGreen/5 rounded-full blur-[150px] pointer-events-none" />
 
       <div className="max-w-5xl mx-auto relative z-10">
-        <Link href="/geotrade" className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-8 group">
+        <Link href="/geotrade" className="inline-flex items-center gap-2 text-textSecondary hover:text-textPrimary transition-colors mb-8 group">
           <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
           Back to Globe
         </Link>
@@ -57,8 +60,8 @@ export default function CountryDeepDive({ params }: { params: Promise<{ country:
           <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-6">
             <div className="w-16 h-16 border-4 border-white/5 border-t-accentGreen rounded-full animate-spin shadow-[0_0_15px_rgba(0,255,136,0.5)]" />
             <div className="text-center">
-              <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-500 animate-pulse">Running Deep LLM Analysis</h2>
-              <p className="text-gray-400 mt-2">Aggregating news and generating systematic strategies for {country}...</p>
+              <h2 className="text-xl font-bold text-textPrimary">Running deep analysis</h2>
+              <p className="text-textSecondary mt-2">Aggregating news and generating systematic strategies for {country}...</p>
             </div>
           </div>
         ) : error ? (
@@ -66,7 +69,7 @@ export default function CountryDeepDive({ params }: { params: Promise<{ country:
             <AlertTriangle className="text-red-500 shrink-0" size={24} />
             <div>
               <h2 className="text-lg font-bold text-red-500 mb-1">Analysis Failed</h2>
-              <p className="text-gray-300">{error}</p>
+              <p className="text-textSecondary">{error}</p>
             </div>
           </div>
         ) : data ? (
@@ -75,14 +78,15 @@ export default function CountryDeepDive({ params }: { params: Promise<{ country:
             {/* Header section */}
             <div className="border-b border-white/10 pb-8">
               <div className="flex items-center gap-4 mb-4">
-                <span className="px-3 py-1 bg-white/10 text-gray-300 rounded-full text-sm font-mono tracking-widest">{country}</span>
+                <span className="px-3 py-1 bg-white/10 text-textSecondary rounded-full text-sm font-mono tracking-widest">{country}</span>
                 <span className="px-3 py-1 bg-accentGreen/20 text-accentGreen rounded-full text-sm font-bold flex items-center gap-2">
                   <Activity size={14} /> Global Macro
                 </span>
               </div>
-              <h1 className="text-5xl font-black tracking-tight">{data.countryName}</h1>
-              <p className="text-xl text-gray-400 mt-4 leading-relaxed max-w-3xl">
-                Real-time systematic deep-dive into the region's current economic climate and algorithmic trading opportunities.
+              <h1 className="text-4xl font-black tracking-tight text-textPrimary sm:text-5xl">{data.countryName}</h1>
+              <p className="mt-4 max-w-2xl text-base leading-relaxed text-textSecondary">
+                A systematic read on this region's economic climate, and the trades
+                that read implies. Context for a position, not a signal.
               </p>
             </div>
 
@@ -95,7 +99,7 @@ export default function CountryDeepDive({ params }: { params: Promise<{ country:
                     <BookOpen className="text-accentGreen" />
                     Macroeconomic Thesis
                   </h2>
-                  <div className="prose prose-invert max-w-none text-gray-300">
+                  <div className="prose prose-invert max-w-none text-textSecondary">
                     {data.thesis.split('\n\n').map((paragraph, i) => (
                       <p key={i} className="mb-4 leading-relaxed whitespace-pre-wrap">{paragraph}</p>
                     ))}
@@ -104,12 +108,12 @@ export default function CountryDeepDive({ params }: { params: Promise<{ country:
 
                 <section>
                   <h2 className="text-2xl font-bold mb-6 flex items-center gap-3 px-2">
-                    <Newspaper className="text-gray-400" />
+                    <Newspaper className="text-textSecondary" />
                     Live Data Vector
                   </h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {data.headlines.map((headline, i) => (
-                      <div key={i} className="bg-white/5 border border-white/5 p-4 rounded-xl text-sm text-gray-300 hover:bg-white/10 hover:border-white/10 transition-colors">
+                      <div key={i} className="bg-white/5 border border-white/5 p-4 rounded-xl text-sm text-textSecondary hover:bg-white/10 hover:border-white/10 transition-colors">
                         {headline}
                       </div>
                     ))}
@@ -126,12 +130,12 @@ export default function CountryDeepDive({ params }: { params: Promise<{ country:
                   </h3>
                   <div className="space-y-4">
                     {data.recommendations.map((rec, i) => (
-                      <div key={i} className="group relative bg-white/5 hover:bg-white/10 border border-white/5 hover:border-accentGreen/30 p-4 rounded-2xl transition-all cursor-pointer">
+                      <div key={i} className="group relative bg-white/5 hover:bg-white/10 border border-white/5 hover:border-accentGreen/30 p-4 rounded-2xl transition-colors duration-150 cursor-pointer">
                         <div className="flex justify-between items-start mb-2">
-                          <span className="font-mono text-lg font-bold text-white group-hover:text-accentGreen transition-colors">{rec.symbol}</span>
-                          <span className="text-xs font-semibold bg-white/10 text-gray-400 px-2 py-1 rounded-md">{rec.name}</span>
+                          <span className="font-mono text-lg font-bold text-textPrimary group-hover:text-accentGreen transition-colors">{rec.symbol}</span>
+                          <span className="text-xs font-semibold bg-white/10 text-textSecondary px-2 py-1 rounded-md">{rec.name}</span>
                         </div>
-                        <p className="text-sm text-gray-400 leading-relaxed group-hover:text-gray-300 transition-colors">{rec.rationale}</p>
+                        <p className="text-sm text-textSecondary leading-relaxed group-hover:text-textSecondary transition-colors">{rec.rationale}</p>
                       </div>
                     ))}
                   </div>

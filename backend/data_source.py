@@ -19,6 +19,7 @@ import os
 import json
 import time
 import threading
+from contextlib import contextmanager
 
 import pandas as pd
 import requests
@@ -34,6 +35,7 @@ FRESH_TTL = {
     "history": 30 * 60,   # 30 min
     "quote": 60,          # 1 min
     "overview": 5 * 60,   # 5 min
+    "fundamentals": 24 * 3600,  # statements only change on results day
 }
 STALE_TTL = 7 * 24 * 3600  # serve stale data up to 7 days old rather than nothing
 
@@ -41,6 +43,40 @@ _MIN_CALL_SPACING = 1.5  # seconds between outbound calls
 _last_call = {"ts": 0.0}
 _throttle_lock = threading.Lock()
 _cache_lock = threading.Lock()
+
+# Corporate proxies that MITM TLS (self-signed cert in chain) break verification
+# for ALL outbound HTTPS. On first SSLError we fall back to unverified TLS and
+# remember. Acceptable trade-off here: public market data only, nothing sensitive
+# sent, and the proxy already terminates TLS anyway.
+_ssl_state = {"verify": True}
+
+
+def http_get(url: str, params: dict | None = None, timeout: int = 15,
+             headers: dict | None = None):
+    """requests.get with browser UA + automatic corporate-MITM fallback.
+
+    `headers` merges over the default UA — NSE's archive host needs a Referer
+    and a fuller Accept than the bare UA we send Yahoo.
+    """
+    hdrs = {**_UA, **(headers or {})}
+    try:
+        return requests.get(url, params=params, headers=hdrs, timeout=timeout,
+                            verify=_ssl_state["verify"])
+    except requests.exceptions.SSLError as e:
+        # Downgrade ONLY for the corporate-MITM signature (self-signed cert in
+        # chain) or an explicit opt-in — a transient handshake error or captive
+        # portal must not silently disable TLS verification for the process.
+        msg = str(e).lower()
+        mitm = "self signed certificate" in msg or "self-signed certificate" in msg
+        if _ssl_state["verify"] and (mitm or os.environ.get("ALLOW_INSECURE_TLS") == "1"):
+            import urllib3
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            _ssl_state["verify"] = False
+            print("[data_source] TLS interception detected (corporate proxy) — "
+                  "continuing without cert verification for public market data.")
+            return requests.get(url, params=params, headers=hdrs, timeout=timeout,
+                                verify=False)
+        raise
 
 _mem_cache: dict = {}
 
@@ -95,10 +131,118 @@ def _throttled(fn):
     return fn()
 
 
+# ------------------------------------------------- system-design hardening ---
+# Circuit breaker: every upstream Yahoo call flows through _get_json. After
+# N consecutive failures the circuit opens and calls fail fast for a cooldown
+# instead of stacking 15s timeouts — callers then fall back to stale cache
+# (which they already know how to do). Half-open after cooldown: one probe
+# is let through; success closes the circuit.
+_BREAKER_THRESHOLD = 5
+_BREAKER_COOLDOWN = 60.0  # seconds
+_breaker = {"failures": 0, "opened_at": 0.0, "probing": False}
+_breaker_lock = threading.Lock()
+
+
+class CircuitOpenError(RuntimeError):
+    """Upstream circuit is open — serve cached/stale data instead."""
+
+
+def _breaker_allow() -> bool:
+    with _breaker_lock:
+        if _breaker["failures"] < _BREAKER_THRESHOLD:
+            return True
+        if _breaker["probing"]:
+            return False  # a probe is already in flight — keep rejecting
+        if time.time() - _breaker["opened_at"] >= _BREAKER_COOLDOWN:
+            _breaker["probing"] = True  # half-open: admit exactly ONE probe
+            return True
+        return False
+
+
+def _breaker_record(ok: bool):
+    with _breaker_lock:
+        _breaker["probing"] = False
+        if ok:
+            _breaker["failures"] = 0
+        else:
+            _breaker["failures"] += 1
+            if _breaker["failures"] >= _BREAKER_THRESHOLD:
+                _breaker["opened_at"] = time.time()
+
+
+# Single-flight (request coalescing): when N threads want the same uncached
+# key (screener fires 5 endpoints for one symbol; holdings-intel fans out),
+# only the first hits the network — the rest wait on the key's lock, then
+# re-read the now-warm cache. Classic cache-stampede protection.
+# Keys derive from user input (symbols), so idle locks are pruned to bound
+# memory; a pruned-and-recreated lock can at worst double-fetch a key idle
+# for 15+ minutes, which is a perf hiccup, not a correctness issue.
+_flight_locks: dict = {}
+_flight_last: dict = {}
+_flight_guard = threading.Lock()
+_FLIGHT_STALE = 900  # seconds
+_FLIGHT_PRUNE_ABOVE = 256  # only bother pruning past this many keys
+
+
+@contextmanager
+def _singleflight(key: str):
+    now = time.monotonic()
+    with _flight_guard:
+        if len(_flight_locks) > _FLIGHT_PRUNE_ABOVE:
+            for k in [k for k, ts in _flight_last.items()
+                      if now - ts > _FLIGHT_STALE and not _flight_locks[k].locked()]:
+                _flight_locks.pop(k, None)
+                _flight_last.pop(k, None)
+        lock = _flight_locks.setdefault(key, threading.Lock())
+        _flight_last[key] = now
+    with lock:
+        yield
+
+
 def _get_json(url: str, params: dict | None = None) -> dict:
-    resp = _throttled(lambda: requests.get(url, params=params, headers=_UA, timeout=15))
-    resp.raise_for_status()
-    return resp.json()
+    if not _breaker_allow():
+        raise CircuitOpenError("upstream circuit open — cooling down")
+    try:
+        resp = _throttled(lambda: http_get(url, params))
+    except Exception:
+        _breaker_record(False)  # network-level failure: upstream unreachable
+        raise
+    # 4xx (except 429) means the upstream is ALIVE and rejecting this request —
+    # a user's typo symbol must never open the circuit for everyone.
+    if 400 <= resp.status_code < 500 and resp.status_code != 429:
+        _breaker_record(True)
+        resp.raise_for_status()
+    try:
+        resp.raise_for_status()  # 429 / 5xx
+        data = resp.json()
+    except Exception:
+        _breaker_record(False)
+        raise
+    _breaker_record(True)
+    return data
+
+
+def get_json_cached(key: str, url: str, params: dict | None = None,
+                    fresh_ttl: float = 3600) -> dict | None:
+    """Throttled + cached GET reusing the same stale-if-error policy as quotes.
+
+    Returns the last good payload when upstream fails, or None if we have never
+    successfully fetched this key. Callers must handle None.
+    """
+    cached, fresh = _cache_get(key, fresh_ttl)
+    if cached is not None and fresh:
+        return cached
+    with _singleflight(key):
+        # another thread may have fetched while we waited on the lock
+        cached, fresh = _cache_get(key, fresh_ttl)
+        if cached is not None and fresh:
+            return cached
+        try:
+            data = _get_json(url, params)
+            _cache_put(key, data)
+            return data
+        except Exception:
+            return cached
 
 
 # ------------------------------------------------------- chart API parsing ---
@@ -140,27 +284,100 @@ def get_history(symbol: str, period: str = "1y") -> pd.DataFrame:
     if cached is not None and fresh:
         return _records_to_df(cached)
 
-    # Primary: public chart API
-    try:
-        records, _ = _fetch_chart(symbol, range_=period)
-        if records:
-            _cache_put(key, records)
-            return _records_to_df(records)
-    except Exception:
-        pass
+    with _singleflight(key):
+        cached, fresh = _cache_get(key, FRESH_TTL["history"])
+        if cached is not None and fresh:
+            return _records_to_df(cached)
 
-    # Secondary: yfinance
-    try:
-        df = _throttled(lambda: yf.Ticker(symbol).history(period=period))
-        if df is not None and not df.empty:
-            _cache_put(key, _df_to_records(df))
-            return df
-    except Exception:
-        pass
+        # Primary: public chart API
+        try:
+            records, _ = _fetch_chart(symbol, range_=period)
+            if records:
+                _cache_put(key, records)
+                return _records_to_df(records)
+        except Exception:
+            pass
 
-    if cached is not None:
-        return _records_to_df(cached)
-    return pd.DataFrame()
+        # Secondary: yfinance
+        try:
+            df = _throttled(lambda: yf.Ticker(symbol).history(period=period))
+            if df is not None and not df.empty:
+                _cache_put(key, _df_to_records(df))
+                return df
+        except Exception:
+            pass
+
+        if cached is not None:
+            return _records_to_df(cached)
+        return pd.DataFrame()
+
+
+# Yahoo's chart API caps intraday history per granularity, and exceeding the cap
+# is a hard 422 rather than a truncated response. These ceilings are measured
+# against the live endpoint, not guessed:
+#
+#     1m  -> 7 days      (1mo returns 422)
+#     2m  -> 60 days
+#     5m  -> 1 month     (3mo returns 422)
+#     15m -> 1 month     (3mo returns 422)
+#     30m -> 1 month
+#     60m -> 2 years     (5y returns 422)
+#     1d+ -> full history
+#
+# Ordered shortest-to-longest so _clamp_range can walk down to a legal value.
+_RANGE_ORDER = ["1d", "5d", "7d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "max"]
+
+MAX_RANGE_FOR_INTERVAL = {
+    "1m": "7d", "2m": "1mo", "5m": "1mo", "15m": "1mo", "30m": "1mo",
+    "60m": "2y", "90m": "2y", "1h": "2y",
+    "1d": "max", "1wk": "max", "1mo": "max",
+}
+
+VALID_INTERVALS = tuple(MAX_RANGE_FOR_INTERVAL)
+
+
+def clamp_range(interval: str, range_: str) -> str:
+    """Largest legal range for an interval, so a caller can ask for more history
+    than Yahoo allows and get the maximum instead of a 422."""
+    cap = MAX_RANGE_FOR_INTERVAL.get(interval, "max")
+    if cap == "max" or range_ == cap:
+        return range_
+    try:
+        return range_ if _RANGE_ORDER.index(range_) <= _RANGE_ORDER.index(cap) else cap
+    except ValueError:
+        return cap
+
+
+def get_ohlc(symbol: str, range_: str = "1y", interval: str = "1d") -> list:
+    """Cached OHLCV records at an arbitrary interval.
+
+    Separate from get_history (which is daily-only and returns a DataFrame)
+    because the chart endpoint needs intraday granularity and the raw records.
+    Intraday bars go stale fast, so the TTL scales with the bar size.
+    """
+    interval = interval if interval in MAX_RANGE_FOR_INTERVAL else "1d"
+    range_ = clamp_range(interval, range_)
+    key = f"ohlc:{symbol}:{range_}:{interval}"
+    # A 1m bar is worthless 30 min later; a daily bar is fine for half an hour.
+    ttl = 60 if interval in ("1m", "2m") else (
+        300 if interval in ("5m", "15m", "30m") else FRESH_TTL["history"])
+
+    cached, fresh = _cache_get(key, ttl)
+    if cached is not None and fresh:
+        return cached
+
+    with _singleflight(key):
+        cached, fresh = _cache_get(key, ttl)
+        if cached is not None and fresh:
+            return cached
+        try:
+            records, _meta = _fetch_chart(symbol, range_=range_, interval=interval)
+            if records:
+                _cache_put(key, records)
+                return records
+        except Exception:
+            pass
+        return cached if cached is not None else []
 
 
 def _df_to_records(df: pd.DataFrame) -> list:
@@ -222,7 +439,15 @@ def get_quote(symbol: str) -> dict:
     cached, fresh = _cache_get(key, FRESH_TTL["quote"])
     if cached is not None and fresh:
         return cached
+    with _singleflight(key):
+        got, fresh = _cache_get(key, FRESH_TTL["quote"])
+        if got is not None and fresh:
+            return got
+        return _fetch_quote(key, symbol, cached)
 
+
+def _fetch_quote(key: str, symbol: str, cached):
+    """Uncached quote fetch — call only while holding the key's flight lock."""
     quote = None
     try:
         records, meta = _fetch_chart(symbol, range_="5d")

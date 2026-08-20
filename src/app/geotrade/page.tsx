@@ -5,6 +5,8 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Activity, Globe2, AlertCircle, Info, Sparkles, TrendingUp, TrendingDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Navigation from '../../components/Navigation';
+import { API_BASE } from '../../lib/api';
 
 // Globe must be dynamically imported with ssr: false since it uses the window object
 const Globe = dynamic(() => import('react-globe.gl'), { ssr: false });
@@ -29,13 +31,21 @@ export default function GeotradePage() {
   useEffect(() => {
     // Topojson is not required if we use standard geojson format directly.
     fetch('https://raw.githubusercontent.com/vasturiano/react-globe.gl/master/example/datasets/ne_110m_admin_0_countries.geojson')
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error(`geojson ${res.status}`);
+        return res.json();
+      })
       .then(data => {
         setCountries(data);
+      })
+      .catch(() => {
+        // Without country shapes there is no globe to draw — say so instead
+        // of leaving a silent black page.
+        setError('Could not load world map data (github.com unreachable). Check your connection and reload.');
       });
 
     // Fetch the live LLM Geotrade Analysis
-    fetch('http://127.0.0.1:5000/api/geotrade')
+    fetch(`${API_BASE}/api/geotrade`)
       .then(res => res.json())
       .then(data => {
         if (data.error) {
@@ -55,9 +65,15 @@ export default function GeotradePage() {
     return analysisData.find(d => d.countryCode === countryCode);
   };
 
+  // Natural Earth ships ISO_A3='-99' for France, Norway, Kosovo etc. —
+  // fall back to ADM0_A3 so they color and route correctly.
+  const isoOf = (feat: any) =>
+    feat?.properties?.ISO_A3 && feat.properties.ISO_A3 !== '-99'
+      ? feat.properties.ISO_A3
+      : feat?.properties?.ADM0_A3;
+
   const getPolygonColor = (feat: any) => {
-    // Note: ISO_A3 matches USA, CHN, IND etc.
-    const isoCode = feat.properties.ISO_A3;
+    const isoCode = isoOf(feat);
     const info = getCountryInfo(isoCode);
     
     if (!info) return 'rgba(200, 200, 200, 0.1)'; // Neutral if no data
@@ -74,7 +90,7 @@ export default function GeotradePage() {
 
   const hoveredInfo = useMemo(() => {
     if (!hoverD) return null;
-    return getCountryInfo(hoverD.properties.ISO_A3);
+    return getCountryInfo(isoOf(hoverD));
   }, [hoverD, analysisData]);
 
   // Adjust globe view on start
@@ -87,26 +103,29 @@ export default function GeotradePage() {
   }, [loading]);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white pt-24 relative overflow-hidden">
-      
+    <div className="relative min-h-screen overflow-hidden bg-bgPrimary pt-24 text-textPrimary">
+      <Navigation />
+
       {/* Background gradient effects */}
       <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-accentGreen/5 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
       
       <div className="absolute top-24 left-8 z-10 max-w-md pointer-events-none">
-        <h1 className="text-4xl font-bold mb-2 flex items-center gap-3">
-          <Globe2 className="text-accentGreen" size={32} />
-          Geotrade AI
+        {/* Overlay header: same type scale as PageHeader, but this page is
+            full-bleed around the globe so it cannot use the shared shell. */}
+        <h1 className="mb-2 flex items-center gap-3 text-3xl font-black tracking-tight text-textPrimary sm:text-4xl">
+          <Globe2 className="text-accentGreen" size={26} />
+          Geotrade
         </h1>
-        <p className="text-gray-400 text-sm leading-relaxed mb-6">
-          Global macroeconomic sentiment analyzed in real-time by LLM agents. 
-          Discover actionable programmatic trade signals filtered from world news.
+        <p className="mb-6 max-w-2xl text-sm leading-relaxed text-textSecondary">
+          Macro sentiment per country, scored from world news flow. Read it as
+          context for a position, not as a signal to take one.
         </p>
       </div>
 
       {loading && (
-        <div className="absolute inset-0 flex items-center justify-center z-50 bg-[#0a0a0a]/80 backdrop-blur-sm">
+        <div className="absolute inset-0 flex items-center justify-center z-50 bg-bgSecondary/80 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-4 border-gray-800 border-t-accentGreen rounded-full animate-spin"></div>
+            <div className="w-12 h-12 border-4 border-borderSubtle border-t-accentGreen rounded-full animate-spin"></div>
             <p className="text-accentGreen font-medium animate-pulse">LLM is analyzing global news...</p>
           </div>
         </div>
@@ -141,9 +160,8 @@ export default function GeotradePage() {
             polygonLabel={() => ''} // Clear default tooltip since we draw a custom one
             onPolygonHover={setHoverD}
             onPolygonClick={(feat: any) => {
-              if (feat && feat.properties && feat.properties.ISO_A3) {
-                router.push(`/geotrade/${feat.properties.ISO_A3}`);
-              }
+              const iso = isoOf(feat);
+              if (iso) router.push(`/geotrade/${iso}`);
             }}
           />
         )}
@@ -162,7 +180,7 @@ export default function GeotradePage() {
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h2 className="text-2xl font-bold tracking-tight">{hoverD.properties.ADMIN}</h2>
-                <div className="flex items-center gap-2 text-sm text-gray-400 mt-1">
+                <div className="flex items-center gap-2 text-sm text-textSecondary mt-1">
                   <span className="opacity-80">Sentiment Score:</span>
                   <span className={`font-mono font-bold ${hoveredInfo.score > 0 ? "text-accentGreen" : "text-red-400"}`}>
                     {hoveredInfo.score.toFixed(2)}
@@ -174,13 +192,13 @@ export default function GeotradePage() {
               </div>
             </div>
 
-            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-5 ${hoveredInfo.score > 0 ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
+            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider mb-5 ${hoveredInfo.score > 0 ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
               <Sparkles size={12} />
               {hoveredInfo.label}
             </div>
 
             <div className="space-y-3">
-              <h4 className="text-sm font-semibold text-gray-300 flex items-center gap-2 uppercase tracking-wide">
+              <h4 className="text-sm font-semibold text-textSecondary flex items-center gap-2 font-mono uppercase tracking-wide">
                 <Activity size={14} className="opacity-50" />
                 Algorithmic Trade Strategy
               </h4>
@@ -203,9 +221,9 @@ export default function GeotradePage() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-lg border border-white/10 text-white px-6 py-3 rounded-full flex items-center gap-3 z-20"
+            className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-bgPrimary/85 backdrop-blur-lg border border-white/10 text-textPrimary px-6 py-3 rounded-full flex items-center gap-3 z-20"
           >
-            <Info size={18} className="text-gray-400" />
+            <Info size={18} className="text-textSecondary" />
             <span>No immediate macro LLM signals detected for <strong>{hoverD.properties.ADMIN}</strong>.</span>
           </motion.div>
         )}

@@ -4,6 +4,7 @@ import { storage } from '@/lib/storage';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../api/auth/[...nextauth]/route';
 import { revalidatePath } from 'next/cache';
+import { API_BASE } from '../../lib/api';
 
 export async function createCommunityPost(formData: FormData) {
   const session = await getServerSession(authOptions);
@@ -26,7 +27,7 @@ export async function createCommunityPost(formData: FormData) {
   let aiConfidenceScore = 50;
 
   try {
-    const aiRes = await fetch('http://127.0.0.1:5000/api/analyze-idea', {
+    const aiRes = await fetch(`${API_BASE}/api/analyze-idea`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, content, ticker, sentiment }),

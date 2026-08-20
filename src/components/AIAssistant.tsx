@@ -102,7 +102,7 @@ export default function AIAssistant() {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
             onClick={() => setOpen(true)}
-            className="fixed bottom-6 right-6 z-[60] flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 px-4 py-3 text-sm font-semibold text-black shadow-glowGreen hover:brightness-110 transition-all"
+            className="fixed bottom-6 right-6 z-[60] flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 px-4 py-3 text-sm font-semibold text-black shadow-glowGreen transition-[filter] duration-150 hover:brightness-110"
             aria-label="Open AI assistant"
           >
             <Sparkles size={16} />
@@ -136,7 +136,7 @@ export default function AIAssistant() {
               </div>
               <button
                 onClick={() => setOpen(false)}
-                className="rounded-lg p-1.5 text-textSecondary hover:bg-white/5 hover:text-white transition-colors"
+                className="rounded-lg p-1.5 text-textSecondary hover:bg-white/5 hover:text-textPrimary transition-colors"
                 aria-label="Close AI assistant"
               >
                 <X size={16} />
@@ -200,7 +200,7 @@ export default function AIAssistant() {
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
                   placeholder="Ask about your portfolio, a ticker, risk…"
-                  className="flex-1 bg-transparent text-sm text-textPrimary placeholder:text-textMuted outline-none"
+                  className="flex-1 bg-transparent text-sm text-textPrimary placeholder:text-textMuted"
                 />
                 <button
                   onClick={() => send()}
@@ -212,7 +212,7 @@ export default function AIAssistant() {
                 </button>
               </div>
               <p className="mt-2 text-center text-[10px] text-textMuted">
-                Educational paper-trading analysis — not financial advice.
+                Educational paper-trading analysis, not financial advice.
               </p>
             </div>
           </motion.div>

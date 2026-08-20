@@ -12,3 +12,4 @@ feedparser
 prophet
 google-generativeai
 python-dotenv
+plotly

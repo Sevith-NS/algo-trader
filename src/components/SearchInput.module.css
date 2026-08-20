@@ -19,20 +19,50 @@
   z-index: 10;
 }
 
+/* Inline request spinner. Sits in the right gutter that the padding below
+   already reserves, so results arriving never shift the text. */
+.searchSpinner {
+  position: absolute;
+  right: 1rem;
+  color: var(--text-muted);
+  pointer-events: none;
+  z-index: 10;
+  animation: searchSpin 0.9s linear infinite;
+}
+
+@keyframes searchSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* The reduced-motion kill-switch in globals.css carves out .animate-spin only,
+   so this spinner states its own slow-rotation fallback. A frozen spinner
+   reads as "hung"; a slow one conveys state without vestibular trigger. */
+@media (prefers-reduced-motion: reduce) {
+  .searchSpinner {
+    animation-duration: 1.8s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+
 .searchInput {
   width: 100%;
-  padding: 1rem 1rem 1rem 3.5rem;
+  /* Right padding reserves the spinner's gutter permanently. */
+  padding: 1rem 3rem 1rem 3.5rem;
   font-size: 1rem;
   color: var(--text-primary);
-  outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .searchInput::placeholder {
-  color: var(--text-secondary);
-  opacity: 0.7;
+  /* --text-muted now clears 4.5:1 on the panel, so the placeholder no longer
+     needs an opacity knock-down that pushed it back under the floor. */
+  color: var(--text-muted);
+  opacity: 1;
 }
 
+/* No `outline: none`. The global :focus-visible ring is the keyboard
+   affordance for the whole app; this adds the border and glow on top of it
+   rather than replacing them. */
 .searchInput:focus {
   border-color: var(--border-focus);
   box-shadow: var(--shadow-glow-green), var(--shadow-glass);
@@ -47,9 +77,15 @@
   max-height: 400px;
   overflow-y: auto;
   z-index: 50;
+  padding: 0.5rem 0;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
   display: flex;
   flex-direction: column;
-  padding: 0.5rem 0;
 }
 
 .dropdownItem {
@@ -57,17 +93,27 @@
   grid-template-columns: auto 1fr auto;
   gap: 1rem;
   align-items: center;
-  padding: 0.75rem 1rem;
+  /* 44px minimum row: these are touch targets on a phone, and the old 0.75rem
+     padding put them at roughly 40px. */
+  min-height: 44px;
+  padding: 0.5rem 1rem;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: background-color 0.15s ease;
 }
 
-.dropdownItem:hover {
-  background: rgba(255, 255, 255, 0.05);
+/* One highlight class for both pointer and keyboard.
+
+   The list previously styled only :hover, which meant the keyboard had no
+   visible position at all. Driving the highlight from React's activeIndex
+   makes arrowing and hovering land in exactly the same place, so the two
+   input methods can never disagree about which row is selected. */
+.dropdownItemActive {
+  background: rgba(255, 255, 255, 0.07);
+  /* Second channel, so the active row does not rest on a 7% wash alone. */
+  box-shadow: inset 2px 0 0 0 var(--accent-green);
 }
 
 .dropdownSymbol {
-  font-weight: 600;
   color: var(--text-primary);
 }
 
@@ -80,10 +126,45 @@
 }
 
 .dropdownType {
-  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
   color: var(--accent-blue);
-  background: rgba(59, 130, 246, 0.1);
+  /* Was rgba(59,130,246,…) — a blue that is not --accent-blue (#60A5FA), so
+     the chip's fill and its text were two different blues. */
+  background: rgba(96, 165, 250, 0.12);
   padding: 0.2rem 0.5rem;
   border-radius: var(--radius-sm);
   text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.empty {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.empty code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.1rem 0.3rem;
+  border-radius: var(--radius-sm);
+}
+
+/* Announced to assistive tech, drawn for nobody. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

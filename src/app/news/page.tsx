@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Newspaper, RefreshCw, ExternalLink, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import clsx from 'clsx';
 import Navigation from '../../components/Navigation';
+import { PageShell, PageHeader } from '../../components/PageHeader';
 import { apiGet } from '../../lib/api';
 
 interface Article {
@@ -76,7 +77,7 @@ function MoodGauge({ value, label }: { value: number; label: string }) {
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-end pb-1">
           <div className="text-4xl font-bold tabular" style={{ color }}>{value}</div>
-          <div className="text-xs uppercase tracking-widest text-textMuted">{label.replace('-', ' ')}</div>
+          <div className="text-xs font-mono uppercase tracking-widest text-textMuted">{label.replace('-', ' ')}</div>
         </div>
       </div>
       <div className="flex w-64 justify-between text-[11px] text-textMuted">
@@ -125,24 +126,21 @@ export default function NewsPage() {
   return (
     <div className="flex min-h-screen flex-col">
       <Navigation />
-      <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 pb-16 pt-28 sm:px-6 lg:px-8">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="flex items-center gap-3 text-3xl font-bold tracking-tight text-gradient">
-              <Newspaper className="text-accentBlue" size={28} /> Global News & Sentiment
-            </h1>
-            <p className="mt-1 text-sm text-textSecondary">
-              Live headlines scored with NLP sentiment across eight market categories.
-            </p>
-          </div>
-          <button
-            onClick={fetchNews}
-            disabled={loading}
-            className="flex items-center gap-2 rounded-xl border border-borderSubtle bg-white/[0.03] px-4 py-2 text-sm text-textSecondary hover:border-accentGreen/40 hover:text-white transition-colors disabled:opacity-50"
-          >
-            <RefreshCw size={14} className={clsx(loading && 'animate-spin')} /> Refresh
-          </button>
-        </div>
+      <PageShell className="flex-1">
+        <PageHeader
+          icon={<Newspaper className="text-accentBlue" size={26} />}
+          title="News & Sentiment"
+          description="Live headlines scored with NLP sentiment across eight market categories."
+          actions={
+            <button
+              onClick={fetchNews}
+              disabled={loading}
+              className="flex items-center gap-2 rounded-xl border border-borderSubtle bg-white/[0.03] px-4 py-2 text-sm text-textSecondary transition-colors hover:border-accentGreen/40 hover:text-textPrimary disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={clsx(loading && 'animate-spin')} /> Refresh
+            </button>
+          }
+        />
 
         {loading && !data ? (
           <div className="glass-panel flex h-64 items-center justify-center">
@@ -175,7 +173,7 @@ export default function NewsPage() {
                       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/5">
                         <div
                           className={clsx(
-                            'h-full rounded-full transition-all duration-700',
+                            'h-full rounded-full transition-[width] duration-700',
                             cat.mood_index >= 55 ? 'bg-accentGreen' : cat.mood_index <= 45 ? 'bg-accentRed' : 'bg-accentAmber'
                           )}
                           style={{ width: `${cat.mood_index}%` }}
@@ -201,7 +199,7 @@ export default function NewsPage() {
                       'rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors',
                       activeCategory === key
                         ? 'bg-emerald-400/15 text-accentGreen'
-                        : 'border border-borderSubtle text-textSecondary hover:text-white'
+                        : 'border border-borderSubtle text-textSecondary hover:text-textPrimary'
                     )}
                   >
                     {key === 'all' ? 'All' : CATEGORY_LABELS[key] ?? key}
@@ -220,13 +218,13 @@ export default function NewsPage() {
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 text-[11px] text-textMuted">
-                        <span className="rounded bg-white/5 px-1.5 py-0.5 uppercase tracking-wide">
+                        <span className="rounded bg-white/5 px-1.5 py-0.5 font-mono uppercase tracking-wide">
                           {CATEGORY_LABELS[a.category] ?? a.category}
                         </span>
                         {a.source && <span>{a.source}</span>}
                         {a.published && <span>· {timeAgo(a.published)}</span>}
                       </div>
-                      <p className="mt-1.5 text-sm font-medium leading-snug text-textPrimary group-hover:text-white">
+                      <p className="mt-1.5 text-sm font-medium leading-snug text-textPrimary group-hover:text-textPrimary">
                         {a.title}
                       </p>
                     </div>
@@ -245,7 +243,7 @@ export default function NewsPage() {
             </div>
           </div>
         )}
-      </main>
+      </PageShell>
     </div>
   );
 }
