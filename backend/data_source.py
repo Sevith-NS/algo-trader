@@ -74,7 +74,11 @@ def http_get(url: str, params: dict | None = None, timeout: int = 15,
             _ssl_state["verify"] = False
             print("[data_source] TLS interception detected (corporate proxy) — "
                   "continuing without cert verification for public market data.")
+<<<<<<< HEAD
             return requests.get(url, params=params, headers=hdrs, timeout=timeout,
+=======
+            return requests.get(url, params=params, headers=_UA, timeout=timeout,
+>>>>>>> 0928f62daede6f592f08199d25dd8b4325f0f991
                                 verify=False)
         raise
 

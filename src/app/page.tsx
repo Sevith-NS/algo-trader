@@ -58,6 +58,20 @@ const CAPABILITIES = [
   },
 ];
 
+/** Primary CTA — a single focusable Link styled as a button (the previous
+ *  <Link><ShimmerButton/></Link> nested a button inside an anchor: invalid
+ *  HTML, double tab stops, and a perpetual shimmer besides). */
+function PrimaryCta({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="group inline-flex items-center gap-2 rounded-full bg-accentGreen px-8 py-3.5 text-sm font-bold text-black shadow-glowGreen transition-all hover:brightness-110 active:translate-y-px"
+    >
+      {children}
+    </Link>
+  );
+}
+
 const STATS = [
   { value: 752, decimals: 0, suffix: '', label: 'NSE names scanned daily' },
   { value: 5, decimals: 0, suffix: '', label: 'Factor votes per signal' },
@@ -179,13 +193,74 @@ export default function LandingPage() {
         ease: 'power3.out',
         scrollTrigger: { trigger: '[data-stats]', start: 'top 85%', once: true },
       });
-    }, rootRef);
+    }, scroller);
+
+    (async () => {
+      try {
+        const LocomotiveScroll = (await import('locomotive-scroll')).default;
+        if (disposed) return;
+
+        // Locomotive's constructor resets native scroll to 0 — remember where
+        // the user already scrolled to during load and restore it after init.
+        const preInitY = window.scrollY;
+
+        loco = new LocomotiveScroll({
+          el: scroller,
+          smooth: true,
+          lerp: 0.09,
+          // wheel must work over the fixed nav too, which lives OUTSIDE the
+          // scroll container — listen on document, not the container
+          scrollFromAnywhere: true,
+          // native scroll on touch devices — smooth-faking there feels broken
+          smartphone: { smooth: false },
+          tablet: { smooth: false },
+        });
+
+        loco.on('scroll', (args: any) => {
+          ScrollTrigger.update();
+          // Bridge for the fixed nav: window.scrollY stays 0 under locomotive,
+          // so Navigation listens for this to toggle its scrolled backdrop.
+          window.dispatchEvent(new CustomEvent('app:scroll', {
+            detail: { y: args?.scroll?.y ?? 0 },
+          }));
+        });
+        ScrollTrigger.scrollerProxy(scroller, {
+          scrollTop(value?: number) {
+            if (arguments.length && loco) {
+              loco.scrollTo(value as number, { duration: 0, disableLerp: true });
+              return;
+            }
+            return loco ? loco.scroll.instance.scroll.y : 0;
+          },
+          getBoundingClientRect() {
+            return { top: 0, left: 0, width: window.innerWidth, height: window.innerHeight };
+          },
+          pinType: 'transform',
+        });
+        ScrollTrigger.defaults({ scroller });
+
+        ctx = buildTweens();
+
+        // keep locomotive's internal limits in sync with layout changes
+        onRefresh = () => loco?.update();
+        ScrollTrigger.addEventListener('refresh', onRefresh);
+        ScrollTrigger.refresh();
+
+        if (preInitY > 0) loco.scrollTo(preInitY, { duration: 0, disableLerp: true });
+      } catch {
+        // Chunk failed to load (offline, flaky network): degrade to native
+        // scroll with the same tweens instead of leaving hero content hidden.
+        if (!disposed) ctx = buildTweens();
+      }
+    })();
 
     return () => ctx.revert();
   }, [reducedMotion]);
 
   return (
     <div ref={rootRef} className="relative">
+      {/* Fixed elements live OUTSIDE the locomotive container — position:fixed
+          breaks inside a transformed ancestor. */}
       <Navigation />
 
       {/* ================================ HERO =============================== */}
@@ -267,6 +342,19 @@ export default function LandingPage() {
           className="max-w-4xl text-2xl font-medium leading-relaxed tracking-tight text-textPrimary md:text-4xl md:leading-relaxed"
           text="Every number here is earned. Sourced, timestamped and sized by evidence. Signals are computed, not felt, risk is stated in currency, and discipline beats conviction on every single trade."
         />
+      </section>
+
+      {/* ================= LIVE TICKER TAPE ================= */}
+      <section className="relative z-10 border-y border-borderSubtle bg-bgPrimary/60 py-4 backdrop-blur-md">
+        <Marquee pauseOnHover className="[--duration:32s] [--gap:0.5rem]">
+          {TICKERS_A.map((t) => <TickerChip key={t.symbol} {...t} />)}
+        </Marquee>
+        <Marquee reverse pauseOnHover className="[--duration:38s] [--gap:0.5rem]">
+          {TICKERS_B.map((t) => <TickerChip key={t.symbol} {...t} />)}
+        </Marquee>
+        {/* edge fades */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-bgPrimary to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-bgPrimary to-transparent" />
       </section>
 
       {/* ============================ CAPABILITIES ========================== */}
@@ -365,6 +453,8 @@ export default function LandingPage() {
           </Link>
         </footer>
       </section>
+
+      </div>{/* /data-scroll-container */}
     </div>
   );
 }

@@ -154,21 +154,31 @@ def test_classifier_reproducible_on_identical_bars():
 
 # ------------------------------------------------------------- universes ---
 
+<<<<<<< HEAD
 def test_static_universe_shapes_and_currency_override():
     """The hand-curated universes. Indian ones are NOT here — they are built
     from the NSE constituent lists at scan time (see the dynamic tests)."""
     expected_counts = {
         "us_large": 48, "us_mid": 50, "us_small": 50,
         "crypto": 12, "commodities": 25, "indices": 13,
+=======
+def test_universe_shapes_and_currency_override():
+    expected_counts = {
+        "us_large": 48, "nifty50": 50, "crypto": 12,
+        "bonds": 12, "commodities": 12, "indices": 13,
+>>>>>>> 0928f62daede6f592f08199d25dd8b4325f0f991
     }
     assert set(se.UNIVERSES) == set(expected_counts)
     for uid, count in expected_counts.items():
         assert len(se.UNIVERSES[uid]["symbols"]) == count, uid
 
+<<<<<<< HEAD
     # Every static universe must declare the group the picker files it under.
     for uid, u in se.UNIVERSES.items():
         assert u.get("group"), f"{uid} has no picker group"
 
+=======
+>>>>>>> 0928f62daede6f592f08199d25dd8b4325f0f991
     # Global Indices mixes currencies: the per-symbol override wins where
     # present, and everything else falls back to the universe default.
     indices = se.UNIVERSES["indices"]
@@ -177,6 +187,7 @@ def test_static_universe_shapes_and_currency_override():
     assert se._symbol_currency(indices, "^N225") == "JPY"
     assert se._symbol_currency(indices, "^GSPC") == "USD"  # not in the map
     # single-currency universes (no "currencies" map) resolve to the default
+<<<<<<< HEAD
     assert se._symbol_currency(se.UNIVERSES["crypto"], "BTC-USD") == "USD"
 
 
@@ -279,6 +290,10 @@ def test_freshness_flags_a_stuck_feed():
     # Unparseable dates must not raise.
     assert se._freshness("not-a-date")["as_of_age_days"] is None
     assert se._freshness(None)["stale"] is False
+=======
+    assert se._symbol_currency(se.UNIVERSES["bonds"], "TLT") == "USD"
+    assert se._symbol_currency(se.UNIVERSES["nifty50"], "TCS.NS") == "INR"
+>>>>>>> 0928f62daede6f592f08199d25dd8b4325f0f991
 
 
 def test_discover_include_untagged(monkeypatch=None):

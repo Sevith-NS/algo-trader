@@ -490,6 +490,11 @@ function ScreenerContent() {
             <RotateCw size={12} /> Retry {symbol}
           </button>
         </div>
+      ) : fetchError ? (
+        <div className="glass-panel flex h-64 flex-col items-center justify-center gap-3 px-6 text-center">
+          <WifiOff size={22} className="text-accentAmber" />
+          <p className="max-w-md text-sm leading-relaxed text-textSecondary">{fetchError}</p>
+        </div>
       ) : (
         <div className="space-y-5">
           {/* ---- Full-width chart ---- */}
