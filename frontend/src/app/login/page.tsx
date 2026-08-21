@@ -74,7 +74,7 @@ export default function LoginPage() {
                 gradient fill: gradient text is the one treatment that reads as
                 decoration on a surface whose whole job is to be trusted. */}
             <h1 className="text-3xl font-bold tracking-tight text-textPrimary">
-              Welcome to <span className="text-accentGreen">Vanguard</span>
+              Welcome to <span className="text-accentGreen">Flint</span>
             </h1>
             <p className="mt-2 text-textSecondary">Sign in to your trading terminal.</p>
           </div>

@@ -100,7 +100,7 @@ function getLabelFont(): string {
   return labelFont;
 }
 
-const STORAGE_PREFIX = 'vanguard.chart.drawings.v1';
+const STORAGE_PREFIX = 'flint.chart.drawings.v1';
 
 // ---------------------------------------------------------------------------
 // Small helpers

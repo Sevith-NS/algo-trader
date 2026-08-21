@@ -59,7 +59,7 @@ const jetbrainsMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Vanguard OS: Screener & Portfolio Intelligence",
+  title: "Flint: Screener & Portfolio Intelligence",
   description: "Quant-grade stock screener, portfolio management, global news sentiment and AI copilot",
 };
 

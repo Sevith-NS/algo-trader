@@ -5,7 +5,7 @@ import { Renderer, Program, Mesh, Color, Triangle } from 'ogl';
 
 /**
  * Vendored from ReactBits' Galaxy background (reactbits.dev), ported to
- * TypeScript and adapted for Vanguard OS:
+ * TypeScript and adapted for Flint:
  *  - `animated={false}` renders exactly ONE frame — the prefers-reduced-motion
  *    path (no rAF loop is ever created);
  *  - the rAF loop pauses while the tab is hidden or the canvas is offscreen;

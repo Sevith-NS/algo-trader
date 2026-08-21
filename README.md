@@ -1,11 +1,11 @@
-# Vanguard OS — Quant Screener & Portfolio Intelligence
+# Flint — Quant Screener & Portfolio Intelligence
 
 A personal stock screener and portfolio management platform with quant-grade analytics:
 
 - **Terminal (Screener)** — candlestick charting with a systematic multi-factor **Quant Trade Plan**: limit entry, ATR/swing-based stop loss, 1.5R / 3R targets, factor vote breakdown (mean reversion, momentum, VWAP, volume flow, RSI) and **half-Kelly position sizing**.
 - **Portfolio** — paper trading with live prices, **risk analytics** (95% VaR & CVaR in dollars, Sharpe, Sortino, max drawdown, beta vs S&P 500, diversification score), sector allocation, and Markowitz max-Sharpe optimization.
 - **News** — global headlines across 8 market categories, each scored with NLP sentiment, plus a global market mood gauge.
-- **Vanguard AI** — floating assistant (bottom-right on every page) powered by Gemini. It sees your paper portfolio, the symbol on screen, live quant signals and news sentiment, and answers grounded questions about risk, sizing and markets.
+- **Flint AI** — floating assistant (bottom-right on every page) powered by Gemini. It sees your paper portfolio, the symbol on screen, live quant signals and news sentiment, and answers grounded questions about risk, sizing and markets.
 - **ML Forecasts** — XGBoost next-day direction probability, Prophet 7-day forecast, news fear/greed index.
 - **Geotrade** — AI macro analysis per country on a 3D globe.
 

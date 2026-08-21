@@ -20,7 +20,7 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 
-SYSTEM_PROMPT = """You are Vanguard AI, the in-app assistant of a personal portfolio
+SYSTEM_PROMPT = """You are Flint AI, the in-app assistant of a personal portfolio
 management and stock screening platform. You help the user understand their
 portfolio, markets, risk, and the platform's quant signals.
 

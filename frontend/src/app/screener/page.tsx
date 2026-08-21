@@ -12,6 +12,7 @@ import NewsIntelPanel from '../../components/intel/NewsIntelPanel';
 import DeepAnalysisSection from '../../components/intel/DeepAnalysisSection';
 import { usePortfolio } from '../../context/PortfolioContext';
 import { API_BASE } from '../../lib/api';
+import { migrateLegacyStorageKeys } from '../../lib/legacyStorage';
 
 const fmtUsd = (val: number | undefined | null, currency = 'USD') =>
   val === undefined || val === null
@@ -123,12 +124,13 @@ const LEVEL_META: {
   { key: 't2', field: 'target_2', label: 'T2', longLabel: 'target 2', color: '#34D399', lineStyle: 3, lineWidth: 2, title: 'T2' },
 ];
 
-const LEVELS_STORAGE_KEY = 'vanguard.terminal.levels.v1';
+const LEVELS_STORAGE_KEY = 'flint.terminal.levels.v1';
 
 const ALL_LEVELS_ON: Record<LevelKey, boolean> = { entry: true, stop: true, t1: true, t2: true };
 
 function loadStoredLevels(): Record<LevelKey, boolean> {
   try {
+    migrateLegacyStorageKeys();
     const raw = window.localStorage.getItem(LEVELS_STORAGE_KEY);
     if (!raw) return ALL_LEVELS_ON;
     const parsed = JSON.parse(raw);

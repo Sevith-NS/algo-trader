@@ -4,7 +4,7 @@
  * Upstream: DavidHDev/react-bits (MIT License). Simulation, shaders and config
  * are kept faithful to the upstream TypeScript variant.
  *
- * Local adaptations (Vanguard OS):
+ * Local adaptations (Flint):
  * - Full teardown on unmount: every window/body/canvas listener is a named
  *   handler and removed; the rAF id is tracked and cancelled; the
  *   first-mousemove/first-touchstart bootstrap listeners are removed; the GL

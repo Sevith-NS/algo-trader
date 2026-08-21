@@ -22,7 +22,7 @@ const useIsomorphicLayoutEffect =
 
 /* -------------------------------- content -------------------------------- */
 
-const MARQUEE_WORDS = ['VANGUARD', 'EVIDENCE', 'DISCIPLINE', 'RISK'];
+const MARQUEE_WORDS = ['FLINT', 'EVIDENCE', 'DISCIPLINE', 'RISK'];
 
 const CAPABILITIES = [
   {
@@ -234,7 +234,7 @@ export default function LandingPage() {
           data-hero-fade
           className="mb-8 font-mono text-[11px] uppercase tracking-[0.35em] text-textMuted"
         >
-          Vanguard OS / a personal quant desk
+          Flint / a personal quant desk
         </p>
 
         {/* The two masked lines are separate block spans, so their text nodes
@@ -293,7 +293,7 @@ export default function LandingPage() {
 
       {/* ========================== VELOCITY MARQUEE ======================== */}
       <section
-        aria-label="Vanguard OS: evidence, discipline, risk"
+        aria-label="Flint: evidence, discipline, risk"
         className="border-y border-borderSubtle py-8 md:py-12"
       >
         <VelocityMarquee baseSpeed={70} className="select-none">
@@ -411,7 +411,7 @@ export default function LandingPage() {
         </div>
 
         <footer className="mt-32 flex flex-col gap-3 border-t border-borderSubtle pt-8 font-mono text-[11px] text-textMuted md:flex-row md:items-center md:justify-between">
-          <span>Vanguard OS</span>
+          <span>Flint</span>
           <span>All trading is paper. Signals are educational, not advice.</span>
           <Link href="/movers" className="transition-colors hover:text-textSecondary">
             /movers

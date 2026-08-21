@@ -106,7 +106,7 @@ export default function AIAssistant() {
             aria-label="Open AI assistant"
           >
             <Sparkles size={16} />
-            Vanguard AI
+            Flint AI
           </motion.button>
         )}
       </AnimatePresence>
@@ -128,7 +128,7 @@ export default function AIAssistant() {
                   <Bot size={16} />
                 </div>
                 <div>
-                  <div className="text-sm font-semibold text-textPrimary">Vanguard AI</div>
+                  <div className="text-sm font-semibold text-textPrimary">Flint AI</div>
                   <div className="text-[11px] text-textMuted">
                     {activeSymbol ? `Watching ${activeSymbol} · portfolio-aware` : 'Portfolio-aware assistant'}
                   </div>

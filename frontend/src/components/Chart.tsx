@@ -6,6 +6,7 @@ import {
 } from 'lightweight-charts';
 import { ema, bollinger, macd, rsi } from '../lib/indicators';
 import { CHART_INTERACTION_FREE, DrawingHint, DrawingRail, useChartDrawings } from './ChartDrawings';
+import { migrateLegacyStorageKeys } from '../lib/legacyStorage';
 
 // ---------------------------------------------------------------------------
 // Indicator configuration
@@ -21,7 +22,7 @@ interface IndicatorConfig {
 
 type IndicatorKey = keyof IndicatorConfig;
 
-const STORAGE_KEY = 'vanguard.chart.indicators.v1';
+const STORAGE_KEY = 'flint.chart.indicators.v1';
 
 const DEFAULT_CONFIG: IndicatorConfig = {
   ema: { on: false, period: 21 },
@@ -76,6 +77,7 @@ function wheelPixels(delta: number, mode: number): number {
 
 function loadStoredConfig(): IndicatorConfig {
   try {
+    migrateLegacyStorageKeys();
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_CONFIG;
     const p = JSON.parse(raw);

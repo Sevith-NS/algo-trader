@@ -16,7 +16,7 @@ The product register is the default, but the surface is split: the app itself (s
 
 ## Product Purpose
 
-Vanguard OS is a personal quant desk: a stock screener and paper-trading platform that unifies the analysis a disciplined trader would otherwise assemble from many tools. It produces a systematic multi-factor trade plan (limit entry, ATR/swing stop, 1.5R/3R targets, factor-vote breakdown, half-Kelly sizing), portfolio risk analytics (VaR/CVaR in dollars, Sharpe, Sortino, max drawdown, beta, diversification, Markowitz optimization), sentiment-scored global news, ML forecasts (XGBoost direction, Prophet), and a portfolio-aware AI assistant grounded in live signals. Success is measured in decision quality: better-sized positions, clearer risk, and trades taken on rules rather than emotion.
+Flint is a personal quant desk: a stock screener and paper-trading platform that unifies the analysis a disciplined trader would otherwise assemble from many tools. It produces a systematic multi-factor trade plan (limit entry, ATR/swing stop, 1.5R/3R targets, factor-vote breakdown, half-Kelly sizing), portfolio risk analytics (VaR/CVaR in dollars, Sharpe, Sortino, max drawdown, beta, diversification, Markowitz optimization), sentiment-scored global news, ML forecasts (XGBoost direction, Prophet), and a portfolio-aware AI assistant grounded in live signals. Success is measured in decision quality: better-sized positions, clearer risk, and trades taken on rules rather than emotion.
 
 ## Positioning
 

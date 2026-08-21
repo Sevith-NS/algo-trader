@@ -38,8 +38,7 @@ export default function Navigation() {
           {/* Logo */}
           <div className="flex-shrink-0">
             <Link href="/" className="flex items-center gap-1 group">
-              <span className="font-mono text-xl font-bold tracking-tight text-textPrimary transition-colors group-hover:text-textSecondary">VANGUARD</span>
-              <span className="font-mono text-xl font-light text-accentGreen transition-colors">OS</span>
+              <span className="font-mono text-xl font-bold tracking-tight text-textPrimary transition-colors group-hover:text-textSecondary">FLINT</span>
             </Link>
           </div>
 

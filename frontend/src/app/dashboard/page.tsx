@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Navigation from '../../components/Navigation';
 import dynamic from 'next/dynamic';
 import { Settings, BarChart2, Activity, PieChart, Users } from 'lucide-react';
+import { migrateLegacyStorageKeys } from '../../lib/legacyStorage';
 
 const ResponsiveGridLayout = dynamic(() => import('./ClientGrid'), { ssr: false });
 
@@ -28,7 +29,8 @@ export default function DashboardPage() {
   useEffect(() => {
     setMounted(true);
     // In a real app, load layouts from localStorage or Prisma DB here
-    const savedLayout = localStorage.getItem('vanguard_layout');
+    migrateLegacyStorageKeys();
+    const savedLayout = localStorage.getItem('flint.dashboard.layout.v1');
     if (savedLayout) {
       try { setLayouts(JSON.parse(savedLayout)); } catch(e) {}
     }
@@ -36,7 +38,7 @@ export default function DashboardPage() {
 
   const handleLayoutChange = (layout: any[], allLayouts: any) => {
     setLayouts(allLayouts);
-    localStorage.setItem('vanguard_layout', JSON.stringify(allLayouts));
+    localStorage.setItem('flint.dashboard.layout.v1', JSON.stringify(allLayouts));
   };
 
   // Mock data for the layout widgets to display immediately without heavy fetching
@@ -99,7 +101,7 @@ export default function DashboardPage() {
         
         <div className="flex gap-2">
           <button 
-            onClick={() => { localStorage.removeItem('vanguard_layout'); window.location.reload(); }}
+            onClick={() => { localStorage.removeItem('flint.dashboard.layout.v1'); window.location.reload(); }}
             className="text-xs text-textSecondary hover:text-textPrimary px-3 py-1.5 border border-borderSubtle rounded transition-colors"
           >
             Reset Layout
