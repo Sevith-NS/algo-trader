@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 import google.generativeai as genai
 
 # Load environment variables (look in parent directories if needed)
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
 # Fallback API key loaded from .env if needed
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")

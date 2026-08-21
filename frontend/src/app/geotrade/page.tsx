@@ -103,11 +103,7 @@ export default function GeotradePage() {
   }, [loading]);
 
   return (
-<<<<<<< HEAD
     <div className="relative min-h-screen overflow-hidden bg-bgPrimary pt-24 text-textPrimary">
-=======
-    <div className="min-h-screen bg-[#0a0a0a] text-white pt-24 relative overflow-hidden">
->>>>>>> 0928f62daede6f592f08199d25dd8b4325f0f991
       <Navigation />
 
       {/* Background gradient effects */}

@@ -4,9 +4,10 @@ import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import Link from 'next/link';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, TrendingUp, TrendingDown } from 'lucide-react';
 
 import Navigation from '../components/Navigation';
+import { Marquee } from '../components/magicui/Marquee';
 import MaskedText from '../components/motion/MaskedText';
 import WordsReveal from '../components/motion/WordsReveal';
 import CharReveal from '../components/motion/CharReveal';
@@ -57,20 +58,6 @@ const CAPABILITIES = [
     desc: 'NSE membership and segment data straight from the exchange, beside US equities, crypto and commodities. One desk for both books, no juggling terminals to see the same position twice.',
   },
 ];
-
-/** Primary CTA — a single focusable Link styled as a button (the previous
- *  <Link><ShimmerButton/></Link> nested a button inside an anchor: invalid
- *  HTML, double tab stops, and a perpetual shimmer besides). */
-function PrimaryCta({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <Link
-      href={href}
-      className="group inline-flex items-center gap-2 rounded-full bg-accentGreen px-8 py-3.5 text-sm font-bold text-black shadow-glowGreen transition-all hover:brightness-110 active:translate-y-px"
-    >
-      {children}
-    </Link>
-  );
-}
 
 const STATS = [
   { value: 752, decimals: 0, suffix: '', label: 'NSE names scanned daily' },
@@ -128,6 +115,42 @@ function CountStat({
   );
 }
 
+/** One ticker chip in the tape. Prices are static sample data, not a live feed. */
+function TickerChip({ symbol, price, change }: { symbol: string; price: string; change: number }) {
+  const up = change >= 0;
+  return (
+    <div className="mx-2 flex items-center gap-3 rounded-full border border-borderSubtle bg-white/[0.03] px-5 py-2.5 font-mono text-[13px] backdrop-blur-sm">
+      <span className="font-bold text-textPrimary">{symbol}</span>
+      <span className="tabular text-textSecondary">{price}</span>
+      <span
+        className={`flex items-center gap-1 tabular font-semibold ${up ? 'text-accentGreen' : 'text-accentRed'}`}
+      >
+        {up ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
+        {up ? '+' : ''}
+        {change.toFixed(2)}%
+      </span>
+    </div>
+  );
+}
+
+const TICKERS_A = [
+  { symbol: 'AAPL', price: '311.20', change: 1.24 },
+  { symbol: 'NVDA', price: '188.45', change: 3.87 },
+  { symbol: 'TSLA', price: '412.09', change: -2.13 },
+  { symbol: 'MSFT', price: '502.66', change: 0.58 },
+  { symbol: 'AMZN', price: '231.14', change: 1.02 },
+  { symbol: 'META', price: '744.31', change: -0.76 },
+];
+
+const TICKERS_B = [
+  { symbol: 'BTC-USD', price: '112,480', change: 2.41 },
+  { symbol: 'ETH-USD', price: '4,102', change: -1.18 },
+  { symbol: 'SPY', price: '682.55', change: 0.34 },
+  { symbol: 'QQQ', price: '612.90', change: 0.71 },
+  { symbol: 'GLD', price: '312.77', change: -0.22 },
+  { symbol: 'VIX', price: '14.82', change: -4.05 },
+];
+
 /** One repeated segment of the marquee strip. */
 function MarqueeSegment() {
   return (
@@ -162,6 +185,9 @@ export default function LandingPage() {
   useIsomorphicLayoutEffect(() => {
     if (reducedMotion || !rootRef.current) return;
 
+    // Smooth scrolling is provided app-wide by <SmoothScroll> (Lenis) in the
+    // root layout, which drives NATIVE scroll — so every trigger here reads the
+    // default scroller with no proxy and no scroll container of its own.
     const ctx = gsap.context(() => {
       // Hero support copy and CTAs drift in after the headline mask reveal —
       // sequence follows reading order, so the eye lands on the headline first.
@@ -193,74 +219,13 @@ export default function LandingPage() {
         ease: 'power3.out',
         scrollTrigger: { trigger: '[data-stats]', start: 'top 85%', once: true },
       });
-    }, scroller);
-
-    (async () => {
-      try {
-        const LocomotiveScroll = (await import('locomotive-scroll')).default;
-        if (disposed) return;
-
-        // Locomotive's constructor resets native scroll to 0 — remember where
-        // the user already scrolled to during load and restore it after init.
-        const preInitY = window.scrollY;
-
-        loco = new LocomotiveScroll({
-          el: scroller,
-          smooth: true,
-          lerp: 0.09,
-          // wheel must work over the fixed nav too, which lives OUTSIDE the
-          // scroll container — listen on document, not the container
-          scrollFromAnywhere: true,
-          // native scroll on touch devices — smooth-faking there feels broken
-          smartphone: { smooth: false },
-          tablet: { smooth: false },
-        });
-
-        loco.on('scroll', (args: any) => {
-          ScrollTrigger.update();
-          // Bridge for the fixed nav: window.scrollY stays 0 under locomotive,
-          // so Navigation listens for this to toggle its scrolled backdrop.
-          window.dispatchEvent(new CustomEvent('app:scroll', {
-            detail: { y: args?.scroll?.y ?? 0 },
-          }));
-        });
-        ScrollTrigger.scrollerProxy(scroller, {
-          scrollTop(value?: number) {
-            if (arguments.length && loco) {
-              loco.scrollTo(value as number, { duration: 0, disableLerp: true });
-              return;
-            }
-            return loco ? loco.scroll.instance.scroll.y : 0;
-          },
-          getBoundingClientRect() {
-            return { top: 0, left: 0, width: window.innerWidth, height: window.innerHeight };
-          },
-          pinType: 'transform',
-        });
-        ScrollTrigger.defaults({ scroller });
-
-        ctx = buildTweens();
-
-        // keep locomotive's internal limits in sync with layout changes
-        onRefresh = () => loco?.update();
-        ScrollTrigger.addEventListener('refresh', onRefresh);
-        ScrollTrigger.refresh();
-
-        if (preInitY > 0) loco.scrollTo(preInitY, { duration: 0, disableLerp: true });
-      } catch {
-        // Chunk failed to load (offline, flaky network): degrade to native
-        // scroll with the same tweens instead of leaving hero content hidden.
-        if (!disposed) ctx = buildTweens();
-      }
-    })();
+    }, rootRef);
 
     return () => ctx.revert();
   }, [reducedMotion]);
 
   return (
     <div ref={rootRef} className="relative">
-      {/* Fixed elements live OUTSIDE the locomotive container — position:fixed
-          breaks inside a transformed ancestor. */}
       <Navigation />
 
       {/* ================================ HERO =============================== */}
@@ -454,7 +419,6 @@ export default function LandingPage() {
         </footer>
       </section>
 
-      </div>{/* /data-scroll-container */}
     </div>
   );
 }

@@ -11,7 +11,26 @@ A personal stock screener and portfolio management platform with quant-grade ana
 
 ## Architecture
 
-- `src/` — Next.js 16 (App Router, Tailwind) frontend on port 3000
+The repo is split into two independently deployable services:
+
+```
+algo-trader/
+├── frontend/          Next.js 16 app (App Router, Tailwind) — port 3000
+│   ├── src/
+│   ├── public/
+│   ├── package.json
+│   └── .env.example   copy to .env.local
+└── backend/           Flask quant/data API — port 5000
+    ├── app.py
+    ├── requirements.txt
+    └── .env.example   copy to .env
+```
+
+They talk over HTTP only: the frontend reads `NEXT_PUBLIC_API_URL` (see
+`frontend/src/lib/api.ts`) and the backend allows CORS on `/api/*`. There is no
+shared code or build step between them, so either can be deployed on its own.
+
+- `frontend/src/` — Next.js 16 (App Router, Tailwind) frontend on port 3000
 - `backend/` — Flask quant/data backend on port 5000
   - `quant_models.py` — multi-factor signal engine + trade levels + Kelly sizing
   - `risk_analytics.py` — VaR/CVaR, Sharpe/Sortino, drawdown, beta, correlations
@@ -28,6 +47,7 @@ A personal stock screener and portfolio management platform with quant-grade ana
 cd backend
 python3 -m venv venv
 ./venv/bin/pip install -r requirements.txt
+cp .env.example .env      # then fill in GEMINI_API_KEY
 ./run.sh
 ```
 
@@ -36,7 +56,8 @@ exports the system keychain CAs so Yahoo Finance / Google News / Gemini requests
 with certificate errors. (`./venv/bin/python app.py` also works on a normal network.)
 XGBoost on macOS needs OpenMP: `brew install libomp`.
 
-Create a `.env` in the project root with your Gemini key (used by the AI assistant and Geotrade):
+Secrets live in `backend/.env` (gitignored; template in `backend/.env.example`). The Gemini
+key powers the AI assistant, deep analysis and Geotrade:
 
 ```
 GEMINI_API_KEY=your_key_here
@@ -45,13 +66,29 @@ GEMINI_API_KEY=your_key_here
 ### 2. Frontend (Next.js, port 3000)
 
 ```bash
+cd frontend
 npm install
+cp .env.example .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000). Run this in a second terminal — the two
+services are separate processes.
 
-Set `NEXT_PUBLIC_API_URL` if the backend runs somewhere other than `http://127.0.0.1:5000`.
+`.env.local` holds `NEXT_PUBLIC_API_URL` (defaults to `http://127.0.0.1:5000`) and the
+NextAuth settings. Point `NEXT_PUBLIC_API_URL` at your deployed API host in any hosted
+environment; because it is `NEXT_PUBLIC_`, it is inlined into the browser bundle at build
+time, so it must be a URL the browser can reach — not a private hostname.
+
+### 3. Deploying the frontend to Vercel
+
+Vercel builds one directory, so point it at the frontend rather than the repo root:
+
+- **Root Directory** → `frontend` (Project Settings → General)
+- **Environment Variables** → `NEXT_PUBLIC_API_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`
+
+The Flask backend is *not* deployed by this — it needs its own host (Render, Railway, Fly,
+a VPS) with `GEMINI_API_KEY` set there, and its public URL becomes `NEXT_PUBLIC_API_URL`.
 
 ## Key API Endpoints
 

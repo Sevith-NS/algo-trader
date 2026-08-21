@@ -33,7 +33,7 @@ import fundamentals
 import news_intel
 import quant_models
 
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 _GEMINI_KEY = os.environ.get("GEMINI_API_KEY")
 
 

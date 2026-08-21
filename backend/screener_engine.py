@@ -31,15 +31,11 @@ import numpy as np
 import pandas as pd
 
 import data_source
-<<<<<<< HEAD
 import nse_segments
-=======
->>>>>>> 0928f62daede6f592f08199d25dd8b4325f0f991
 import quant_models
 
 
 # -------------------------------------------------------------- universes ---
-<<<<<<< HEAD
 #
 # Two kinds live in the same registry:
 #
@@ -56,12 +52,6 @@ _STATIC_UNIVERSES = {
     "us_large": {
         "label": "US Large Cap",
         "group": "US",
-=======
-
-UNIVERSES = {
-    "us_large": {
-        "label": "US Large Cap",
->>>>>>> 0928f62daede6f592f08199d25dd8b4325f0f991
         "currency": "USD",
         "symbols": {
             "AAPL": "Apple", "MSFT": "Microsoft", "NVDA": "NVIDIA",
@@ -83,7 +73,6 @@ UNIVERSES = {
             "NKE": "Nike",
         },
     },
-<<<<<<< HEAD
     "us_mid": {
         # S&P MidCap 400 representatives. Curated rather than fetched: every
         # keyless US constituent feed either needs a crumb or rate-limits to
@@ -147,47 +136,11 @@ UNIVERSES = {
             "AGO": "Assured Guaranty", "KFY": "Korn Ferry",
             "EXPO": "Exponent", "ICFI": "ICF International",
             "MYRG": "MYR Group", "IESC": "IES Holdings",
-=======
-    "nifty50": {
-        "label": "NIFTY 50",
-        "currency": "INR",
-        "symbols": {
-            "RELIANCE.NS": "Reliance Industries", "TCS.NS": "TCS",
-            "HDFCBANK.NS": "HDFC Bank", "BHARTIARTL.NS": "Bharti Airtel",
-            "ICICIBANK.NS": "ICICI Bank", "INFY.NS": "Infosys",
-            "SBIN.NS": "State Bank of India",
-            "HINDUNILVR.NS": "Hindustan Unilever", "ITC.NS": "ITC",
-            "LT.NS": "Larsen & Toubro", "BAJFINANCE.NS": "Bajaj Finance",
-            "HCLTECH.NS": "HCL Technologies", "MARUTI.NS": "Maruti Suzuki",
-            "SUNPHARMA.NS": "Sun Pharma", "KOTAKBANK.NS": "Kotak Mahindra Bank",
-            "M&M.NS": "Mahindra & Mahindra", "AXISBANK.NS": "Axis Bank",
-            "ULTRACEMCO.NS": "UltraTech Cement", "NTPC.NS": "NTPC",
-            "TITAN.NS": "Titan", "ONGC.NS": "ONGC",
-            "ADANIENT.NS": "Adani Enterprises", "ADANIPORTS.NS": "Adani Ports",
-            "POWERGRID.NS": "Power Grid", "ASIANPAINT.NS": "Asian Paints",
-            "BAJAJFINSV.NS": "Bajaj Finserv", "WIPRO.NS": "Wipro",
-            "JSWSTEEL.NS": "JSW Steel", "NESTLEIND.NS": "Nestle India",
-            # Tata Motors demerged in 2025; the PV entity carries the history.
-            "TMPV.NS": "Tata Motors PV", "COALINDIA.NS": "Coal India",
-            "BAJAJ-AUTO.NS": "Bajaj Auto", "TATASTEEL.NS": "Tata Steel",
-            "GRASIM.NS": "Grasim", "HINDALCO.NS": "Hindalco",
-            "TECHM.NS": "Tech Mahindra", "DRREDDY.NS": "Dr. Reddy's",
-            "CIPLA.NS": "Cipla", "EICHERMOT.NS": "Eicher Motors",
-            "SBILIFE.NS": "SBI Life", "HDFCLIFE.NS": "HDFC Life",
-            "BRITANNIA.NS": "Britannia", "APOLLOHOSP.NS": "Apollo Hospitals",
-            "DIVISLAB.NS": "Divi's Labs", "INDUSINDBK.NS": "IndusInd Bank",
-            "HEROMOTOCO.NS": "Hero MotoCorp", "TATACONSUM.NS": "Tata Consumer",
-            "BPCL.NS": "BPCL", "SHRIRAMFIN.NS": "Shriram Finance",
-            "TRENT.NS": "Trent",
->>>>>>> 0928f62daede6f592f08199d25dd8b4325f0f991
         },
     },
     "crypto": {
         "label": "Crypto Majors",
-<<<<<<< HEAD
         "group": "Crypto",
-=======
->>>>>>> 0928f62daede6f592f08199d25dd8b4325f0f991
         "currency": "USD",
         # 7-day weeks: ~365 daily bars per calendar year, and annualized vol
         # must scale by sqrt(365) — sqrt(252) understates crypto vol ~1.2x.
@@ -200,7 +153,6 @@ UNIVERSES = {
             "LTC-USD": "Litecoin", "BCH-USD": "Bitcoin Cash",
         },
     },
-<<<<<<< HEAD
     "commodities": {
         "label": "Commodities",
         "group": "Commodities",
@@ -234,41 +186,11 @@ UNIVERSES = {
             "ZS=F": "Soybeans", "ZM=F": "Soybean Meal", "ZL=F": "Soybean Oil",
             "KC=F": "Coffee", "SB=F": "Sugar", "CC=F": "Cocoa",
             "CT=F": "Cotton", "LE=F": "Live Cattle", "HE=F": "Lean Hogs",
-=======
-    "bonds": {
-        # US-listed Treasury/credit ETFs stand in for the rates complex —
-        # Indian G-Sec series has no reliable keyless source yet (PRD A11).
-        "label": "Govt Bonds & Rates",
-        "currency": "USD",
-        "symbols": {
-            "SHY": "1-3Y Treasury (SHY)", "IEF": "7-10Y Treasury (IEF)",
-            "TLT": "20Y+ Treasury (TLT)", "GOVT": "US Treasury Broad (GOVT)",
-            "TIP": "TIPS (TIP)", "VGIT": "Interm Treasury (VGIT)",
-            "BND": "Total Bond (BND)", "AGG": "US Aggregate (AGG)",
-            "LQD": "IG Corporate (LQD)", "HYG": "High Yield (HYG)",
-            "EMB": "EM Sovereign (EMB)", "MUB": "US Munis (MUB)",
-        },
-    },
-    "commodities": {
-        "label": "Commodities",
-        "currency": "USD",
-        # Yahoo front-month continuous futures ("=F"). requests URL-encodes
-        # the "=" in query params and the spark response keys by the raw
-        # symbol, so the parse path needs no special casing.
-        "symbols": {
-            "GC=F": "Gold", "SI=F": "Silver", "CL=F": "WTI Crude",
-            "BZ=F": "Brent Crude", "NG=F": "Natural Gas", "HG=F": "Copper",
-            "PL=F": "Platinum", "PA=F": "Palladium", "ZC=F": "Corn",
-            "ZW=F": "Wheat", "ZS=F": "Soybeans", "KC=F": "Coffee",
->>>>>>> 0928f62daede6f592f08199d25dd8b4325f0f991
         },
     },
     "indices": {
         "label": "Global Indices",
-<<<<<<< HEAD
         "group": "Global",
-=======
->>>>>>> 0928f62daede6f592f08199d25dd8b4325f0f991
         "currency": "USD",
         # Index levels quote in each exchange's home currency — the optional
         # per-universe "currencies" map overrides the default per symbol,
@@ -290,7 +212,6 @@ UNIVERSES = {
 }
 
 
-<<<<<<< HEAD
 # Indian universes are NOT hand-written. Each names an nse_segments index id;
 # membership (and therefore what Discover scans) comes from the NSE constituent
 # lists that module already fetches, caches for a day and snapshots to disk for
@@ -323,17 +244,12 @@ _dynamic_lock = threading.Lock()
 
 class UnknownUniverseError(ValueError):
     """Universe id not in the registry — the route maps this to HTTP 400."""
-=======
-class UnknownUniverseError(ValueError):
-    """Universe id not in UNIVERSES — the route maps this to HTTP 400."""
->>>>>>> 0928f62daede6f592f08199d25dd8b4325f0f991
 
 
 class UnknownScreenError(ValueError):
     """Screen id not in the registry — the route maps this to HTTP 404."""
 
 
-<<<<<<< HEAD
 def _build_dynamic(universe_id: str) -> dict | None:
     """Materialise an NSE index universe, or None when membership is unavailable.
 
@@ -426,19 +342,6 @@ def _universe_index() -> list:
     order = {g: i for i, g in enumerate(GROUP_ORDER)}
     out.sort(key=lambda r: order.get(r["group"], len(GROUP_ORDER)))
     return out
-=======
-def _resolve_universe(universe_id: str) -> dict:
-    uni = UNIVERSES.get(universe_id)
-    if uni is None:
-        raise UnknownUniverseError(
-            f"Unknown universe '{universe_id}'. Valid: {', '.join(UNIVERSES)}")
-    return uni
-
-
-def _universe_index() -> list:
-    return [{"id": uid, "label": u["label"], "count": len(u["symbols"])}
-            for uid, u in UNIVERSES.items()]
->>>>>>> 0928f62daede6f592f08199d25dd8b4325f0f991
 
 
 def _symbol_currency(uni: dict, symbol: str) -> str:
@@ -463,14 +366,10 @@ def _load_universe_series(universe_id: str):
     simply skipped; `scanned` in responses stays the attempted universe size
     so a partial upstream outage is visible as scanned > len(results).
     """
-<<<<<<< HEAD
     # Sorted so chunk boundaries — and therefore the spark cache keys — stay
     # stable across calls. A dynamic universe reshuffling its dict order would
     # otherwise miss the cache and re-hit the upstream for data we already hold.
     symbols = sorted(_resolve_universe(universe_id)["symbols"])
-=======
-    symbols = list(UNIVERSES[universe_id]["symbols"])
->>>>>>> 0928f62daede6f592f08199d25dd8b4325f0f991
     series: dict = {}
     latest_ts = None
     for i in range(0, len(symbols), _SPARK_CHUNK):
@@ -661,11 +560,7 @@ def _attach_percentiles(metrics: dict):
 
 def _universe_metrics(universe_id: str):
     series, as_of = _load_universe_series(universe_id)
-<<<<<<< HEAD
     ppy = _resolve_universe(universe_id).get("periods_per_year", 252)
-=======
-    ppy = UNIVERSES[universe_id].get("periods_per_year", 252)
->>>>>>> 0928f62daede6f592f08199d25dd8b4325f0f991
     metrics = {}
     for sym, closes in series.items():
         m = _metrics_for(closes, periods_per_year=ppy)
@@ -1018,7 +913,6 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-<<<<<<< HEAD
 def _freshness(as_of: str) -> dict:
     """How old the newest bar in a scan actually is.
 
@@ -1041,8 +935,6 @@ def _freshness(as_of: str) -> dict:
     }
 
 
-=======
->>>>>>> 0928f62daede6f592f08199d25dd8b4325f0f991
 # -------------------------------------------------------------- rendering ---
 
 # Rounding per output key: prices 2dp, percentages 1-2dp, ratios 2dp,
@@ -1119,10 +1011,7 @@ def get_discover(universe_id: str = "us_large",
         "currency": uni["currency"],
         "universes": _universe_index(),
         "as_of": as_of,
-<<<<<<< HEAD
         **_freshness(as_of),
-=======
->>>>>>> 0928f62daede6f592f08199d25dd8b4325f0f991
         "computed_at": _utc_now(),
         "scanned": len(uni["symbols"]),
         "parsed": len(metrics),  # 0 == upstream outage; routes send no-store
@@ -1198,10 +1087,7 @@ def run_screen(screen_id: str, universe_id: str = "us_large") -> dict:
         "universe_label": uni["label"],
         "currency": uni["currency"],
         "as_of": as_of,
-<<<<<<< HEAD
         **_freshness(as_of),
-=======
->>>>>>> 0928f62daede6f592f08199d25dd8b4325f0f991
         "computed_at": _utc_now(),
         "scanned": len(uni["symbols"]),
         "parsed": len(metrics),  # 0 == upstream outage; routes send no-store
