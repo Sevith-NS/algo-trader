@@ -57,11 +57,15 @@ backend/.market_cache.json
 # and the Groww instrument master. Snapshots, not source.
 backend/.nse_segments.json
 backend/.groww_instruments.json
+# Local tooling, editor and vault state - personal to one machine, not the project
 .gstack/
-.impeccable
-.obsidian
-.vscode
-.gstack
+.impeccable/
+.obsidian/
+.vscode/
+
+# Local-only docs and build noise
 PRD.md
 CLAUDE.md
 build.log
+prisma-error*.log
+prisma-format.log
